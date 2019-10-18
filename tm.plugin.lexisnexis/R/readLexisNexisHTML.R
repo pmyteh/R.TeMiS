@@ -72,6 +72,8 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         #####
         # textConnection() in LexisNexisSource() converts strings to UTF-8
         tree <- read_html(elem$content, asText=TRUE, encoding="UTF-8")
+        # Strip unhelpful <style> elements
+        xml_remove(xml_find_all(tree, "//style"), free=TRUE)
 
         #####
         # 2: Chunking

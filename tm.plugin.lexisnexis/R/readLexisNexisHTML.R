@@ -2,15 +2,15 @@
 fields <- list(section=c("section", "rubrique", "rubrik"),
                length=c("length", "longueur", "l\ue4nge"),
                author=c("byline", "auteur", "autor"),
-               typepub=c("type", "publication-type", "type-publication"),
+               type=c("type", "publication-type", "type-publication"),
                subject=c("subject", "sujet"),
                language=c("language", "langue", "sprache"),
                # The English translation is uncertain for these
-               insert=c("insert", "encart"),
-               geo=c("geo-localization", "localisation-geo"),
+               intro=c("insert", "encart"),
+               coverage=c("geo-localization", "localisation-geo"),
                company=c("company", "societe"),
                stocksymbol=c("stock-symbol", "symbole-boursier"),
-               sector=c("activity-sector", "secteur-activite"),
+               industry=c("activity-sector", "secteur-activite"),
                # Some translations are uncertain for these. Like most LN field
                # codes, they don't appear for all sources.
                pubcode=c("journal-code"),
@@ -20,25 +20,20 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                doctype=c("document-type"))
 
 getfield <- function(nodes, field) {
-    ind <- which(names(nodes) %in% paste0(toupper(fields[[field]]), ":"))
-    if(length(ind) > 0) {
+    ind <- which(xml_attr(nodes, 'ln-possible-metadata') == field)
+    if(length(ind) > 1) {
+        warning("Multiple matches for field ", field, ": choosing the first from ", nodes[ind], "\n")
+        ind <- min(ind)
+    }
+    if(length(ind) == 0) {
         x <- xml_children(xml_child(nodes[[ind]]))
-        if(length(x) > 1)
-            xml_text(x[[2]])
-        else
-            character(0)
-    }
-    else {
-        character(0)
-    }
-}
-
-splitfield <- function(nodes, field) {
-    str <- getfield(nodes, field)
-    if(length(str) > 0)
-        gsub(" \n?\\([[:digit:]]{2}%)|\n", "", strsplit(str, "; ")[[1]])
-    else
-        character(0)
+        if(length(x) > 1) {
+            # Read out the result, tag the node, return
+            xml_set_attr(nodes[ind], "ln-parsed-as", field)
+            xml_set_attr(nodes[ind], "ln-possible-metadata", NULL)
+            return(xml_text(x[[2]]))
+        }
+    character(0)
 }
 
 # These generate regexes to detect day and month names, for the date parsing code.
@@ -83,6 +78,18 @@ parseDate <- function(s) {
     s
 }
 
+slugToFieldname <- function(slug) {
+    slug <- trimws(slug)
+    # Actual field codes are a single slug of upper-case characters and hyphens,
+    # followed by (just) a colon.
+    if (!grepl('^[-A-Z]+:$', slug)) return(NA)
+    slug <- tolower(gsub(":$", "", slug))
+    for (i in seq_along(fields)) {
+        if (slug %in% fields[[i]]) return(names(fields)[i])
+    }
+    paste0("UNKNOWN-", slug)
+}
+
 
 readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
     function(elem, language, id) {
@@ -125,6 +132,14 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         if(xml_text(nodes[[1]], trim=TRUE) == "Return to List")
             nodes <- nodes[-1]
 
+        # Extract first field on each line, which contains metadata entry type
+        # We use this for doing lookups on known metadata fields
+        node_leads <- xml_text(xml_find_first(nodes, '*[1]/*'), trim=TRUE)
+        for (i in 1:length(node_leads)) {
+            f <- slugToFieldname(node_leads[i])
+            if (!is.na(f)) xml_set_attr(nodes[i], "ln-possible-metadata", f)
+        }
+
 
         #####
         # 3: Extract and delete by tagname or fixed position, if possible
@@ -133,8 +148,62 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # Set up master metadata list
         m <- list()
 
-        # Extract first field, which contains meta-data entry type
-        names(nodes) <- sapply(nodes, function(x) xml_text(xml_children(xml_children(x)[[1]])[1], trim=TRUE))
+        # By position: the first item is the document count (which we don't use)
+        #              and the second is the publication name
+        docctstr <- xml_text(nodes[[1]], trim=TRUE)
+        xml_set_attr(nodes[1], "ln-parsed-as", "docctstr")
+        m[["origin"]] <- xml_text(nodes[[2]], trim=TRUE)
+        xml_set_attr(nodes[2], "ln-parsed-as", "origin")
+
+        # By content: looking up by fieldnames
+        exflds <- list()
+        # We detect, and parse, those fieldnames identified in `fields`.
+        # We don't necessarily to anything with these, but we do tag them
+        # in the tree: even if we don't put the 'pubcode' into the final
+        # metadata, for example, we still don't want it being parsed as part
+        # of the article content.
+        #
+        # xml2 nodesets have reference semantics, so attributes we add
+        # to nodes within getField persist by side effect despite being
+        # in a function.
+        #
+        # Later we take the fields from the exflds list that we want.
+        for (field in names(fields)) {
+	    exflds[[k]] <- getField(nodes, field)
+        }
+
+        lookup_field <- function(key) {
+            if(!is.null(exflds[[key]])) exflds[[key]] else character(0)
+        }
+
+        # These are raw string (or character(0)) lookups; those which need
+        # splitting, or further parsing are processed later.
+        m[["author"]] <- lookup_field("author")
+        m[["type"]] <- lookup_field("type")
+        m[["section"]] <- lookup_field("section")
+        # These are processed later
+        m[["language"]] <- lookup_field("language")
+        m[["wordcount"]] <- lookup_field("length")
+        # These are split later
+        m[["intro"]] <- lookup_field("intro")
+        m[["subject"]] <- lookup_field("subject")
+        m[["coverage"]] <- lookup_field("coverage")
+        m[["company"]] <- lookup_field("company")
+        m[["stocksymbol"]] <- lookup_field("stocksymbol")
+        m[["industry"]] <- lookup_field("industry")
+
+        # Check that we've matched all of the fieldcodes. This doesn't mean
+        # we're using them as metadata, just that they're in the fields list
+        # and being successfully pulled out.
+        # TODO: Many of these for The Mirror are headlines, using the tabloid
+        #       convention for reporting speech: "EU: No further Brexit delay".
+        # We could filter these by looking for the usual <span class="c9">
+        # or whatever? In headlines, I don't think there's usually a style
+        # break after the colon.
+#        residualcodes <- grepl('^UNKNOWN-', xml_attr(nodes, "ln-possible-metadata", default=""))
+#        if (any(residualcodes)) warning("Potential field codes detected which are not currently handled: ",
+#                                        gsub('^UNKNOWN-', '', xml_attr(nodes[residualcodes], "ln-possible-metadata")),
+#                                        "\n")
 
         #####
         # 4: Use heuristics to extract copyright, date, heading, and body
@@ -149,26 +218,32 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         cr <- which(grepl("^Copyright", vals))
         if (any(cr)) {
             m[["rights"]] <- vals[[max(cr)]]
+            xml_set_attr(nodes[max(cr)], "ln-parsed-as", "rights")
         } else {
             warning(sprintf("Could not parse copyright notice for article %s. This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n", id))
             m[["rights"]] <- character(0)
         }
-
-        # First item is the document number,
-        # the second is the publication name.
-        publication <- vals[2]
 
         # Date can be before or after heading: try to detect which is which.
         datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {
             m[["datetimestamp"]] <- parseDate(vals[datepos[1]])
-            heading <- vals[setdiff(1:4, datepos[1])[3]]
-        }
-        else {
+            xml_set_attr(nodes[datepos[1]], "ln-parsed-as", "datetimestamp")
+            headingpos <- setdiff(1:4, datepos[1])[3]
+        } else {
             # Can't find it! Guess...
             m[["datetimestamp"]] <- parseDate(vals[3])
-            heading <- vals[4]
+            xml_set_attr(nodes[3], "ln-parsed-as", "datetimestamp")
+            headingpos <- 4
+        }
+
+        if (!xml_has_attr(nodes[headingpos], "ln-parsed-as")) {
+            m[["heading"]] <- vals[headingpos]
+            xml_set_attr(nodes[headingpos], "ln-parsed-as", "heading")
+        } else {
+            warning("No heading found for article ", id, "\n")
+            heading <- character(0)
         }
 
         # Position of main text can vary, so choose the longest part after the heading
@@ -185,20 +260,24 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         else
             m[["wordcount"]] <- NA
 
-        m[["author"]] <- getfield(nodes, "author")
-        m[["type"]] <- getfield(nodes, "typepub")
-        m[["section"]] <- getfield(nodes, "section")
-        m[["intro"]] <- splitfield(nodes, "insert")
-        m[["subject"]] <- splitfield(nodes, "subject")
-        m[["coverage"]] <- splitfield(nodes, "geo")
-        m[["company"]] <- splitfield(nodes, "company")
-        m[["stocksymbol"]] <- splitfield(nodes, "stocksymbol")
-        m[["industry"]] <- splitfield(nodes, "sector")
-
 
         #####
         # 5: Tidy up variables as needed
         #####
+
+        # Process chunked fields
+        split_chunk <- function(str) {
+            if(length(str) > 0)
+                gsub(" \n?\\([[:digit:]]{2}%)|\n", "", strsplit(str, "; ")[[1]])
+            str
+        }
+
+        m[["intro"]] <- split_chunk(m[["intro"]])
+        m[["subject"]] <- split_chunk(m[["subject"]])
+        m[["coverage"]] <- split_chunk(m[["coverage"]])
+        m[["company"]] <- split_chunk(m[["company"]])
+        m[["stocksymbol"]] <- split_chunk(m[["stocksymbol"]])
+        m[["industry"]] <- split_chunk(m[["industry"]])
 
         # Standardise language, using ISO 639 lookup table where possible
         languagestr <- getfield(nodes, "language")
@@ -221,7 +300,6 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["id"]] <- paste(gsub("[^[:alnum:]]", "", substr(publication, 1, 10)),
                     if(!is.na(date)) strftime(date, format="%Y%m%d") else "",
                     id, sep="")
-
 
         #####
         # 6: Generate and return a PlainTextDocument

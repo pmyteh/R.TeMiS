@@ -97,6 +97,14 @@ slugToFieldname <- function(slug) {
     paste0("UNKNOWN-", slug)
 }
 
+is_seq_contiguous <- function(nums) {
+    x <- NA
+    for (n in nums) {
+        if (!is.na(x) && n != x+1) return(FALSE)
+        x <- n
+    }
+    TRUE
+}
 
 readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
     function(elem, language, id) {
@@ -132,7 +140,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # 2: Chunking
         #####
 
-        nodes <- xml_find_all(tree, "//br/following-sibling::div[1]")
+        nodes <- xml_find_all(tree, "body/br/following-sibling::*[not(self::br)]")
 
         # Trim empty and spurious nodes
         nodes <- nodes[xml_text(nodes) != ""]
@@ -253,12 +261,19 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
             heading <- character(0)
         }
 
-        # Position of main text can vary, so choose the longest part after the heading
-        contentpos <- which.max(sapply(tail(vals, -5), nchar)) + 5
-        content <- sapply(xml_children(nodes[[contentpos]]), function(x)
+        # Position of main text can vary, but we should have tagged everything else parseable.
+        contentpos <- which(!xml_has_attr(nodes, "ln-parsed-as"))
+        if (!is_seq_contiguous(contentpos)) warning("Non-contiguous paragraphs detected as main text for article", id, "\n")
+        content <- sapply(xml_children(nodes[contentpos]), function(x)
                           paste(sapply(xml_children(x), function(y)
                                        paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
                                 collapse=" "))
+
+        if (is.na(content) || length(content) == 0 || identical(content,"")) {
+            warning("No content found for article ", id, "\n")
+            content <- ""
+        }
+
 
         #####
         # 5: Tidy up variables as needed

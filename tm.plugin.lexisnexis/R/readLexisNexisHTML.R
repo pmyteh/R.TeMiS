@@ -121,7 +121,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         nodes <- xml_find_all(tree, "//br/following-sibling::div[1]")
 
         # Trim empty and spurious nodes
-        nodes <- nodes[sapply(nodes, function(x) length(xml_children(x))) > 0]
+        nodes <- nodes[xml_text(nodes) != ""]
         if(xml_text(nodes[[1]], trim=TRUE) == "Return to List")
             nodes <- nodes[-1]
 

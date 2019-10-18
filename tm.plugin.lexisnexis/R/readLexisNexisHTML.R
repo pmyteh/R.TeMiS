@@ -130,6 +130,8 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # 3: Extract and delete by tagname or fixed position, if possible
         #####
 
+        # Set up master metadata list
+        m <- list()
 
         # Extract first field, which contains meta-data entry type
         names(nodes) <- sapply(nodes, function(x) xml_text(xml_children(xml_children(x)[[1]])[1], trim=TRUE))
@@ -146,24 +148,26 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # the last such line.
         cr <- which(grepl("^Copyright", vals))
         if (any(cr)) {
-            copyright <- vals[[max(cr)]]
+            m[["rights"]] <- vals[[max(cr)]]
         } else {
             warning(sprintf("Could not parse copyright notice for article %s. This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n", id))
-            copyright <- NULL
+            m[["rights"]] <- character(0)
         }
 
-        # First item is the document number
+        # First item is the document number,
+        # the second is the publication name.
         publication <- vals[2]
 
         # Date can be before or after heading: try to detect which is which.
         datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {
-            date <- parseDate(vals[datepos[1]])
+            m[["datetimestamp"]] <- parseDate(vals[datepos[1]])
             heading <- vals[setdiff(1:4, datepos[1])[3]]
         }
         else {
-            date <- parseDate(vals[3])
+            # Can't find it! Guess...
+            m[["datetimestamp"]] <- parseDate(vals[3])
             heading <- vals[4]
         }
 
@@ -174,40 +178,47 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
                                        paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
                                 collapse=" "))
 
+        # Extract numeric wordcount
         wcstr <- getfield(nodes, "length")
         if(length(wcstr) > 0)
-            wc <- as.integer(regmatches(wcstr, regexec("[0-9]+", wcstr))[[1]])
+            m[["wordcount"]] <- as.integer(regmatches(wcstr, regexec("[0-9]+", wcstr))[[1]])
         else
-            wc <- NA
+            m[["wordcount"]] <- NA
 
-        author <- getfield(nodes, "author")
-        type <- getfield(nodes, "typepub")
-        section <- getfield(nodes, "section")
-        intro <- splitfield(nodes, "insert")
-        subject <- splitfield(nodes, "subject")
-        coverage <- splitfield(nodes, "geo")
-        company <- splitfield(nodes, "company")
-        stocksymbol <- splitfield(nodes, "stocksymbol")
-        industry <- splitfield(nodes, "sector")
+        m[["author"]] <- getfield(nodes, "author")
+        m[["type"]] <- getfield(nodes, "typepub")
+        m[["section"]] <- getfield(nodes, "section")
+        m[["intro"]] <- splitfield(nodes, "insert")
+        m[["subject"]] <- splitfield(nodes, "subject")
+        m[["coverage"]] <- splitfield(nodes, "geo")
+        m[["company"]] <- splitfield(nodes, "company")
+        m[["stocksymbol"]] <- splitfield(nodes, "stocksymbol")
+        m[["industry"]] <- splitfield(nodes, "sector")
+
 
         #####
         # 5: Tidy up variables as needed
         #####
 
+        # Standardise language, using ISO 639 lookup table where possible
         languagestr <- getfield(nodes, "language")
         if(length(languagestr) > 0) {
             language <- strsplit(languagestr, "; ")[[1]][1]
-            lang <- ISO_639_2[match(tolower(language), tolower(ISO_639_2[["Name"]])), "Alpha_2"]
-            if(is.na(lang))
-                lang <- tolower(language)
+            m[["language"]] <- ISO_639_2[match(tolower(language), tolower(ISO_639_2[["Name"]])), "Alpha_2"]
+            if(is.na(m[["language"]]))
+                m[["language"]] <- tolower(language)
         }
         else {
-            lang <- character(0)
+            m[["language"]] <- character(0)
         }
 
+        # Ensure heuristically extracted items are sane
+        m[["author"]] <- if(length(m[["author"]]) > 0 && !is.na(m[["author"]])) m[["author"]] else character(0)
+        m[["heading"]] <- if(length(m[["heading"]]) > 0 && !is.na(m[["heading"]])) m[["heading"]] else character(0)
+        m[["origin"]] <- if(length(m[["origin"]]) > 0 && !is.na(m[["origin"]])) m[["origin"]] else character(0)
 
         # Generate a unique id
-        id <- paste(gsub("[^[:alnum:]]", "", substr(publication, 1, 10)),
+        m[["id"]] <- paste(gsub("[^[:alnum:]]", "", substr(publication, 1, 10)),
                     if(!is.na(date)) strftime(date, format="%Y%m%d") else "",
                     id, sep="")
 
@@ -217,24 +228,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         #####
 
         # XMLSource uses character(0) rather than NA, do the same
-        doc <- PlainTextDocument(x = content,
-                                 author = if(length(author) > 0 && !is.na(author)) author else character(0),
-                                 datetimestamp = date,
-                                 heading = if(length(heading) > 0 && !is.na(heading)) heading else character(0),
-                                 id = id,
-                                 origin = if(length(publication) > 0 && !is.na(publication)) publication else character(0),
-                                 language = lang)
-        meta(doc, "intro") <- intro
-        meta(doc, "section") <- section
-        meta(doc, "subject") <- subject
-        meta(doc, "coverage") <- coverage
-        meta(doc, "company") <- company
-        meta(doc, "stocksymbol") <- stocksymbol
-        meta(doc, "industry") <- industry
-        meta(doc, "type") <- type
-        meta(doc, "wordcount") <- wc
-        meta(doc, "rights") <- copyright
-        doc
+        PlainTextDocument(x = content, meta = m)
     }
 })
 

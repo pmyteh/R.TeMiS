@@ -1,4 +1,4 @@
-# Known translation of field names
+# Known translations of field names
 fields <- list(section=c("section", "rubrique", "rubrik"),
                length=c("length", "longueur", "l\ue4nge"),
                author=c("byline", "auteur", "autor"),
@@ -34,6 +34,8 @@ splitfield <- function(nodes, field) {
         character(0)
 }
 
+# These generate regexes to detect day and month names, for the date parsing code.
+# They should currently work in English, French, and your current configured R locale
 weekdays <- paste(c("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
                     "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
                     weekdays(seq(as.Date("2018-01-01"), as.Date("2018-01-07"), by=1))),
@@ -45,17 +47,62 @@ months <- paste(c("january", "february", "march", "april", "may", "june", "july"
 
 readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
     function(elem, language, id) {
+        # The content of a LexisNexis HTML file are language-dependent,
+        # inconsistent, only partially semantically tagged, and don't follow a
+        # hierarchical format which is easy for parsing.
+        #
+        # The basic strategy of this function is as follows:
+        # 1) Parse the HTML text with xml2
+        # 2) Chunk the parsed content into content nodes
+        # 3) Extract metadata using fixed position fields and by detecting LN's
+        #    slugs such as "LOAD-DATE:" in consistent places at the start of lines
+        # 4) Use heuristics to guess the heading, the body, the date, and the
+        #    copyright notice (which are not tagged)
+        # 5) Tidy up the variables where needed
+        # 6) Make a PlainTextDocument and return it
+        #
+        # We keep track of which nodes have been processed, and what we got from
+        # them, by adding attributes to nodes directly.
+
+        # Temporary id, until we've parsed the date etc.
+        id <- paste0(basename(elem$uri), ":", id)
+
+        #####
+        # 1: Parsing
+        #####
         # textConnection() in LexisNexisSource() converts strings to UTF-8
         tree <- read_html(elem$content, asText=TRUE, encoding="UTF-8")
+
+        #####
+        # 2: Chunking
+        #####
+
         nodes <- xml_find_all(tree, "//br/following-sibling::div[1]")
+
+        # Trim empty and spurious nodes
         nodes <- nodes[sapply(nodes, function(x) length(xml_children(x))) > 0]
         if(xml_text(nodes[[1]], trim=TRUE) == "Return to List")
             nodes <- nodes[-1]
 
+
+        #####
+        # 3: Extract and delete by tagname or fixed position, if possible
+        #####
+
+
         # Extract first field, which contains meta-data entry type
         names(nodes) <- sapply(nodes, function(x) xml_text(xml_children(xml_children(x)[[1]])[1], trim=TRUE))
+
+        #####
+        # 4: Use heuristics to extract copyright, date, heading, and body
+        #####
+
+        # Create a vector of text from the nodeset
         vals <- sapply(nodes, xml_text, trim=TRUE)
 
+        # There is no standard parseable fieldname for copyright, but the line
+        # starts with "Copyright", and it's at the end of the document, so take
+        # the last such line.
         cr <- which(grepl("^Copyright", vals))
         if (any(cr)) {
             copyright <- vals[[max(cr)]]
@@ -67,7 +114,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # First item is the document number
         publication <- vals[2]
 
-        # Date can be before or after heading: try to detect which is which
+        # Date can be before or after heading: try to detect which is which.
         datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {
@@ -101,6 +148,10 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         company <- splitfield(nodes, "company")
         stocksymbol <- splitfield(nodes, "stocksymbol")
         industry <- splitfield(nodes, "sector")
+
+        #####
+        # 5: Tidy up variables as needed
+        #####
 
         languagestr <- getfield(nodes, "language")
         if(length(languagestr) > 0) {
@@ -140,9 +191,15 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
                 warning(sprintf("Could not parse document date \"%s\". You may need to change the system locale to match that of the corpus. See LC_TIME in ?Sys.setlocale.", strdate))
         }
 
+        # Generate a unique id
         id <- paste(gsub("[^[:alnum:]]", "", substr(publication, 1, 10)),
                     if(!is.na(date)) strftime(date, format="%Y%m%d") else "",
                     id, sep="")
+
+
+        #####
+        # 6: Generate and return a PlainTextDocument
+        #####
 
         # XMLSource uses character(0) rather than NA, do the same
         doc <- PlainTextDocument(x = content,

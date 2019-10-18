@@ -52,6 +52,38 @@ months <- paste(c("january", "february", "march", "april", "may", "june", "july"
                   months(seq(as.Date("2018-01-01"), as.Date("2018-12-31"), by=31))),
                 collapse="|")
 
+parseDate <- function(s) {
+    # Parse date
+    date.split <- strsplit(s, " ")[[1]]
+    date.split <- date.split[date.split != ""]
+    strdate <- paste(gsub(",| |\\.", "", date.split[1]),
+                     gsub(",| |\\.", "", date.split[2]),
+                     gsub(",| |\\.", "", date.split[3]))
+    # English uses the first format, French the second one
+    s <- strptime(strdate, "%B %d %Y")
+    if(is.na(s)) s <- strptime(strdate, "%d %B %Y")
+    if(is.na(s) && strdate != "") {
+        # Try C locale, just in case
+        old.locale <- Sys.getlocale("LC_TIME")
+        Sys.setlocale("LC_TIME", "C")
+        s <- strptime(strdate, "%B %d %Y")
+        if(is.na(s)) s <- strptime(strdate, "%d %B %Y")
+        Sys.setlocale("LC_TIME", old.locale)
+
+        # A bug in Mac OS gives NA when start of month name matches an abbreviated name:
+        # http://www.freebsd.org/cgi/query-pr.cgi?pr=141939
+        # https://stat.ethz.ch/pipermail/r-sig-mac/2012-June/009296.html
+        # Add a workaround for French
+        if (Sys.info()["sysname"] == "Darwin")
+            s <- strptime(sub("[jJ]uillet", "07", strdate), "%d %m %Y")
+
+        if(is.na(s))
+            warning(sprintf("Could not parse document date \"%s\". You may need to change the system locale to match that of the corpus. See LC_TIME in ?Sys.setlocale.", strdate))
+    }
+    s
+}
+
+
 readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
     function(elem, language, id) {
         # The content of a LexisNexis HTML file are language-dependent,
@@ -127,11 +159,11 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {
-            date <- vals[datepos[1]]
+            date <- parseDate(vals[datepos[1]])
             heading <- vals[setdiff(1:4, datepos[1])[3]]
         }
         else {
-            date <- vals[3]
+            date <- parseDate(vals[3])
             heading <- vals[4]
         }
 
@@ -173,32 +205,6 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
             lang <- character(0)
         }
 
-        date.split <- strsplit(date, " ")[[1]]
-        date.split <- date.split[date.split != ""]
-        strdate <- paste(gsub(",| |\\.", "", date.split[1]),
-                         gsub(",| |\\.", "", date.split[2]),
-                         gsub(",| |\\.", "", date.split[3]))
-        # English uses the first format, French the second one
-        date <- strptime(strdate, "%B %d %Y")
-        if(is.na(date)) date <- strptime(strdate, "%d %B %Y")
-        if(is.na(date) && strdate != "") {
-            # Try C locale, just in case
-            old.locale <- Sys.getlocale("LC_TIME")
-            Sys.setlocale("LC_TIME", "C")
-            date <- strptime(strdate, "%B %d %Y")
-            if(is.na(date)) date <- strptime(strdate, "%d %B %Y")
-            Sys.setlocale("LC_TIME", old.locale)
-
-            # A bug in Mac OS gives NA when start of month name matches an abbreviated name:
-            # http://www.freebsd.org/cgi/query-pr.cgi?pr=141939
-            # https://stat.ethz.ch/pipermail/r-sig-mac/2012-June/009296.html
-            # Add a workaround for French
-            if (Sys.info()["sysname"] == "Darwin")
-                date <- strptime(sub("[jJ]uillet", "07", strdate), "%d %m %Y")
-
-            if(is.na(date))
-                warning(sprintf("Could not parse document date \"%s\". You may need to change the system locale to match that of the corpus. See LC_TIME in ?Sys.setlocale.", strdate))
-        }
 
         # Generate a unique id
         id <- paste(gsub("[^[:alnum:]]", "", substr(publication, 1, 10)),

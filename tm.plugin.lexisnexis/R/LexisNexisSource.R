@@ -36,4 +36,4 @@ LexisNexisSource <- function(x, encoding = "UTF-8") {
                  reader=readLexisNexisHTML, class="LexisNexisSource")
 }
 
-getElem.LexisNexisSource <- function(x) list(content = x$content[[x$position]], uri = x$URI)
+getElem.LexisNexisSource <- function(x) list(content = x$content[[x$position]], uri = x$uri)

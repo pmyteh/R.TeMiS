@@ -36,6 +36,13 @@ getfield <- function(nodes, field) {
     character(0)
 }
 
+# Process chunked fields
+split_chunk <- function(str) {
+    if(length(str) > 0)
+        gsub(" \n?\\([[:digit:]]{2}%)|\n", "", strsplit(str, "; ")[[1]])
+    str
+}
+
 # These generate regexes to detect day and month names, for the date parsing code.
 # They should currently work in English, French, and your current configured R locale
 weekdays <- paste(c("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
@@ -164,12 +171,12 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # of the article content.
         #
         # xml2 nodesets have reference semantics, so attributes we add
-        # to nodes within getField persist by side effect despite being
+        # to nodes within getfield persist by side effect despite being
         # in a function.
         #
         # Later we take the fields from the exflds list that we want.
         for (field in names(fields)) {
-	    exflds[[k]] <- getField(nodes, field)
+	    exflds[[k]] <- getfield(nodes, field)
         }
 
         lookup_field <- function(key) {
@@ -253,24 +260,9 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
                                        paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
                                 collapse=" "))
 
-        # Extract numeric wordcount
-        wcstr <- getfield(nodes, "length")
-        if(length(wcstr) > 0)
-            m[["wordcount"]] <- as.integer(regmatches(wcstr, regexec("[0-9]+", wcstr))[[1]])
-        else
-            m[["wordcount"]] <- NA
-
-
         #####
         # 5: Tidy up variables as needed
         #####
-
-        # Process chunked fields
-        split_chunk <- function(str) {
-            if(length(str) > 0)
-                gsub(" \n?\\([[:digit:]]{2}%)|\n", "", strsplit(str, "; ")[[1]])
-            str
-        }
 
         m[["intro"]] <- split_chunk(m[["intro"]])
         m[["subject"]] <- split_chunk(m[["subject"]])
@@ -280,16 +272,21 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["industry"]] <- split_chunk(m[["industry"]])
 
         # Standardise language, using ISO 639 lookup table where possible
-        languagestr <- getfield(nodes, "language")
-        if(length(languagestr) > 0) {
-            language <- strsplit(languagestr, "; ")[[1]][1]
-            m[["language"]] <- ISO_639_2[match(tolower(language), tolower(ISO_639_2[["Name"]])), "Alpha_2"]
+        if(length(m[["language"]]) > 0) {
+            langstr <- strsplit(m[["language"]], "; ")[[1]][1]
+            m[["language"]] <- ISO_639_2[match(tolower(langstr), tolower(ISO_639_2[["Name"]])), "Alpha_2"]
             if(is.na(m[["language"]]))
-                m[["language"]] <- tolower(language)
+                m[["language"]] <- tolower(langstr)
         }
         else {
             m[["language"]] <- character(0)
         }
+
+        # Extract numeric wordcount
+        if(length(m[["wordcount"]]) > 0)
+            m[["wordcount"]] <- as.integer(regmatches(m[["wordcount"]], regexec("[0-9]+", m[["wordcount"]]))[[1]])
+        else
+            m[["wordcount"]] <- NA
 
         # Ensure heuristically extracted items are sane
         m[["author"]] <- if(length(m[["author"]]) > 0 && !is.na(m[["author"]])) m[["author"]] else character(0)
@@ -297,9 +294,13 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["origin"]] <- if(length(m[["origin"]]) > 0 && !is.na(m[["origin"]])) m[["origin"]] else character(0)
 
         # Generate a unique id
-        m[["id"]] <- paste(gsub("[^[:alnum:]]", "", substr(publication, 1, 10)),
-                    if(!is.na(date)) strftime(date, format="%Y%m%d") else "",
-                    id, sep="")
+        pubcode <- lookup_field("pubcode")
+        if (length(pubcode) == 0) {
+            pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
+        }
+        m[["id"]] <- paste(pubcode,
+                           if(!is.na(m[["datetimestamp"]])) strftime(m[["datetimestamp"]], format="%Y%m%d") else "",
+                           id, sep="")
 
         #####
         # 6: Generate and return a PlainTextDocument

@@ -10,7 +10,14 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                geo=c("geo-localization", "localisation-geo"),
                company=c("company", "societe"),
                stocksymbol=c("stock-symbol", "symbole-boursier"),
-               sector=c("activity-sector", "secteur-activite"))
+               sector=c("activity-sector", "secteur-activite"),
+               # Some translations are uncertain for these. Like most LN field
+               # codes, they don't appear for all sources.
+               pubcode=c("journal-code"),
+               loaddate=c("load-date", "date-chargement"),
+               graphic=c("graphic"),
+               dateline=c("dateline"),
+               doctype=c("document-type"))
 
 getfield <- function(nodes, field) {
     ind <- which(names(nodes) %in% paste0(toupper(fields[[field]]), ":"))

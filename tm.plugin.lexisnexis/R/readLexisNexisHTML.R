@@ -17,7 +17,9 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                loaddate=c("load-date", "date-chargement"),
                graphic=c("graphic"),
                dateline=c("dateline"),
-               doctype=c("document-type"))
+               doctype=c("document-type"), # NY Times
+               url=c("url"),               # NY Times
+               highlight=c("highlight"))   # NY Times
 
 getfield <- function(nodes, field) {
     ind <- which(xml_attr(nodes, 'ln-possible-metadata') == field)

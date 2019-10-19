@@ -25,7 +25,7 @@ getfield <- function(nodes, field) {
         warning("Multiple matches for field ", field, ": choosing the first from ", nodes[ind], "\n")
         ind <- min(ind)
     }
-    if(length(ind) == 0) {
+    if(length(ind) == 1) {
         x <- xml_children(xml_child(nodes[[ind]]))
         if(length(x) > 1) {
             # Read out the result, tag the node, return
@@ -33,6 +33,7 @@ getfield <- function(nodes, field) {
             xml_set_attr(nodes[ind], "ln-possible-metadata", NULL)
             return(xml_text(x[[2]]))
         }
+    }
     character(0)
 }
 
@@ -126,7 +127,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # them, by adding attributes to nodes directly.
 
         # Temporary id, until we've parsed the date etc.
-        id <- paste0(basename(elem$uri), ":", id)
+        tid <- paste0(basename(elem$uri), ":", id)
 
         #####
         # 1: Parsing
@@ -185,7 +186,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         #
         # Later we take the fields from the exflds list that we want.
         for (field in names(fields)) {
-	    exflds[[k]] <- getfield(nodes, field)
+    	    exflds[[field]] <- getfield(nodes, field)
         }
 
         lookup_field <- function(key) {
@@ -221,6 +222,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
 #                                        gsub('^UNKNOWN-', '', xml_attr(nodes[residualcodes], "ln-possible-metadata")),
 #                                        "\n")
 
+
         #####
         # 4: Use heuristics to extract copyright, date, heading, and body
         #####
@@ -236,7 +238,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
             m[["rights"]] <- vals[[max(cr)]]
             xml_set_attr(nodes[max(cr)], "ln-parsed-as", "rights")
         } else {
-            warning(sprintf("Could not parse copyright notice for article %s. This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n", id))
+            warning("Could not parse copyright notice for article", tid, ". This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n")
             m[["rights"]] <- character(0)
         }
 
@@ -257,10 +259,10 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         if (!xml_has_attr(nodes[headingpos], "ln-parsed-as")) {
             m[["heading"]] <- vals[headingpos]
             xml_set_attr(nodes[headingpos], "ln-parsed-as", "heading")
-        } else {
-            warning("No heading found for article ", id, "\n")
-            heading <- character(0)
-        }
+        }# else {
+#            warning("No heading found for ", tid, "\n")
+#            heading <- character(0)
+#        }
 
         # Position of main text can vary, but we should have tagged everything else parseable.
         contentpos <- which(!xml_has_attr(nodes, "ln-parsed-as"))
@@ -271,7 +273,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
                                 collapse=" "))
 
         if (is.na(content) || length(content) == 0 || identical(content,"")) {
-            warning("No content found for article ", id, "\n")
+            warning("No content found for article ", tid, "\n")
             content <- ""
         }
 

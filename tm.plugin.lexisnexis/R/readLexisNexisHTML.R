@@ -133,14 +133,15 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         #####
         # textConnection() in LexisNexisSource() converts strings to UTF-8
         tree <- read_html(elem$content, asText=TRUE, encoding="UTF-8")
-        # Strip unhelpful <style> elements
+        # Strip unhelpful <style> and <br> elements
         xml_remove(xml_find_all(tree, "//style"), free=TRUE)
+        xml_remove(xml_find_all(tree, "//br"), free=TRUE)
 
         #####
         # 2: Chunking
         #####
 
-        nodes <- xml_find_all(tree, "body/br/following-sibling::*[not(self::br)]")
+        nodes <- xml_find_all(tree, "body/*")
 
         # Trim empty and spurious nodes
         nodes <- nodes[xml_text(nodes) != ""]

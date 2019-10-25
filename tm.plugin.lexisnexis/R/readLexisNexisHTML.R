@@ -112,13 +112,45 @@ slugToFieldname <- function(slug) {
     paste0("UNKNOWN-", slug)
 }
 
-is_seq_contiguous <- function(nums) {
-    x <- NA
+makeSeqs <- function(nums) {
+    # Identify contiguous sequences in a vector of numbers, returning a list
+    # of sequences
+    nums <- sort(nums)
+    seqs <- list()
+    currentseq <- NA
+    lastn <- NA
     for (n in nums) {
-        if (!is.na(x) && n != x+1) return(FALSE)
-        x <- n
+        if (is.na(lastn) || n != lastn + 1) {
+            currentseq <- as.character(n)
+            seqs[[currentseq]] <- n
+        } else {
+            seqs[[currentseq]] <- append(seqs[[currentseq]], n)
+        }
+        lastn <- n
     }
-    TRUE
+    seqs
+}
+
+getLongestContent <- function(nodes, nums) {
+    seqs <- makeSeqs(nums)
+    best_len <- 0
+    best_txt <- character(0)
+    for (seq in seqs) {
+        text <- sapply(xml_children(nodes[seq]), function(x)
+            paste(sapply(xml_children(x), function(y)
+                paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
+                collapse=" "))
+
+        work <- paste(text, collapse=" ")
+        work <- gsub('([[:space:]]){2,}', "\\1", work)
+        work <- trimws(work)
+        work <- strsplit(work, '[[:space:]]')[[1]]
+        if (length(work) > best_len) {
+            best_txt <- trimws(text)
+            best_len <- length(work)
+        }
+    }
+    best_txt
 }
 
 readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
@@ -282,14 +314,29 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
 
         # Position of main text can vary, but we should have tagged everything else parseable.
         contentpos <- which(!xml_has_attr(nodes, "ln-parsed-as"))
-        if (!is_seq_contiguous(contentpos)) warning("Non-contiguous paragraphs detected as main text for article", id, "\n")
-        content <- sapply(xml_children(nodes[contentpos]), function(x)
-                          paste(sapply(xml_children(x), function(y)
-                                       paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
-                                collapse=" "))
+        content <- getLongestContent(nodes, contentpos)
+        # if (length(contentpos) > 1) {
+        #     # More than one node, possibly discrepant. Test.
+        #     # DEBUG FIXME
+        #     # Position of main text can vary, so choose the longest part after the heading
+        #     contentpos <- which.max(sapply(tail(vals, -5), nchar)) + 5
+        #     oldcontent <- sapply(xml_children(nodes[[contentpos]]), function(x)
+        #                           paste(sapply(xml_children(x), function(y)
+        #                                        paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
+        #                                 collapse=" "))
+        #
+        #     if (!identical(content, oldcontent)) {
+        #         m[["oldcontent"]] <- oldcontent
+        #         write(paste0("Discrepant content for ", tid, "\nContent:\n", content, "\nOldcontent:\n", oldcontent, "\n", collapse="\n"),
+        #               file="")
+        #     }
+        # }
 
-        if (is.na(content) || length(content) == 0 || identical(content,"")) {
-            warning("No content found for article ", tid, "\n")
+        # No content happens occasionally, almost always because the article is
+        # a photo (possibly with a heading and a caption) without a text body.
+        if ((is.na(content) || length(content) == 0 || identical(content,"")) &&
+             length(m["graphic"]) == 0) {
+            warning("No content (and no graphic tag) found: ", tid, "\n")
             content <- ""
         }
 

@@ -27,7 +27,8 @@ LexisNexisSource <- function(x, encoding = "UTF-8") {
                       fixed=TRUE)
     if(any(errtexts)) {
         warning(x, ": LexisNexis failed to provide some documents; skipping number(s) ",
-                paste0(which(errtexts), collapse=", "))
+                paste0(which(errtexts), collapse=", "),
+                "\n")
         content <- content[!errtexts]
     }
     

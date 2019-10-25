@@ -83,7 +83,10 @@ parseDate <- function(s) {
             s <- strptime(sub("[jJ]uillet", "07", strdate), "%d %m %Y")
 
         if(is.na(s))
-            warning(sprintf("Could not parse document date \"%s\". You may need to change the system locale to match that of the corpus. See LC_TIME in ?Sys.setlocale.", strdate))
+            warning(print0("Could not parse document date \"", strdate, "\": ",
+                           tid, ". You may need to change the system locale to",
+                           " match that of the corpus. See LC_TIME in ",
+                           "?Sys.setlocale.\n"))
     }
     s
 }
@@ -240,7 +243,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
             m[["rights"]] <- vals[[max(cr)]]
             xml_set_attr(nodes[max(cr)], "ln-parsed-as", "rights")
         } else {
-            warning("Could not parse copyright notice for article", tid, ". This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n")
+            warning("Could not parse copyright notice: ", tid, ". This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n")
             m[["rights"]] <- character(0)
         }
 

@@ -9,6 +9,7 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                intro=c("insert", "encart"),
                coverage=c("geo-localization", "localisation-geo"),
                company=c("company", "societe"),
+               organisation=c("organisation"),
                stocksymbol=c("stock-symbol", "symbole-boursier"),
                industry=c("activity-sector", "secteur-activite"),
                # Some translations are uncertain for these. Like most LN field
@@ -17,9 +18,14 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                loaddate=c("load-date", "date-chargement"),
                graphic=c("graphic"),
                dateline=c("dateline"),
-               doctype=c("document-type"), # NY Times
-               url=c("url"),               # NY Times
-               highlight=c("highlight"))   # NY Times
+               # Below from the NY Times
+               doctype=c("document-type"),
+               url=c("url"),
+               highlight=c("highlight"),
+               name=c("name"),
+               correction=c("correction"),
+               correctiondate=c("correction-date"),
+               distribution=c("distribution"))
 
 getfield <- function(nodes, field) {
     ind <- which(xml_attr(nodes, 'ln-possible-metadata') == field)
@@ -94,7 +100,10 @@ parseDate <- function(s) {
 slugToFieldname <- function(slug) {
     slug <- trimws(slug)
     # Actual field codes are a single slug of upper-case characters and hyphens,
-    # followed by (just) a colon.
+    # followed by (just) a colon. The content is in a sibling <span>, so is not
+    # part of the slug. If we do get a slug of the form
+    # "CITY: WE'VE FAILED AGAIN" then that's probably a headline and we don't
+    # want it.
     if (!grepl('^[-A-Z]+:$', slug)) return(NA)
     slug <- tolower(gsub(":$", "", slug))
     for (i in seq_along(fields)) {
@@ -203,6 +212,8 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["author"]] <- lookup_field("author")
         m[["type"]] <- lookup_field("type")
         m[["section"]] <- lookup_field("section")
+        m[["graphic"]] <- lookup_field("graphic")
+        m[["correction"]] <- lookup_field("correction")
         # These are processed later
         m[["language"]] <- lookup_field("language")
         m[["wordcount"]] <- lookup_field("length")

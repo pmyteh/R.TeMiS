@@ -265,10 +265,10 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # We could filter these by looking for the usual <span class="c9">
         # or whatever? In headlines, I don't think there's usually a style
         # break after the colon.
-#        residualcodes <- grepl('^UNKNOWN-', xml_attr(nodes, "ln-possible-metadata", default=""))
-#        if (any(residualcodes)) warning("Potential field codes detected which are not currently handled: ",
-#                                        gsub('^UNKNOWN-', '', xml_attr(nodes[residualcodes], "ln-possible-metadata")),
-#                                        "\n")
+        # residualcodes <- grepl('^UNKNOWN-', xml_attr(nodes, "ln-possible-metadata", default=""))
+        # if (any(residualcodes)) warning("Potential field codes detected which are not currently handled: ",
+        #                                 paste(gsub('^UNKNOWN-', '', xml_attr(nodes[residualcodes], "ln-possible-metadata")), collapse=" "),
+        #                                 "\n")
 
 
         #####
@@ -291,6 +291,9 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         }
 
         # Date can be before or after heading: try to detect which is which.
+        # TODO: The edition name (where present) is in the same <p> as the
+        # date (albeit in a separate <span> and after a <br>), on the following
+        # line. We should consider extracting this.
         datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {

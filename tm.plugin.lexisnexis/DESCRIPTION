@@ -5,7 +5,7 @@ Version: 1.4.0
 Date: 2018-06-05
 Authors@R: person("Milan", "Bouchet-Valat", email="nalimilan@club.fr",
                   role=c("aut", "cre"))
-Imports: utils, NLP, tm (>= 0.6), xml2, ISOcodes
+Imports: utils, NLP, tm (>= 0.6), xml2, ISOcodes, textreadr
 Description: Provides a 'tm' Source to create corpora from
   articles exported from the 'LexisNexis' content provider as
   HTML files. It is able to read both text content and meta-data

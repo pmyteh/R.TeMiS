@@ -1,158 +1,3 @@
-# Known translations of field names
-fields <- list(section=c("section", "rubrique", "rubrik"),
-               length=c("length", "longueur", "l\ue4nge"),
-               author=c("byline", "auteur", "autor"),
-               type=c("type", "publication-type", "type-publication"),
-               subject=c("subject", "sujet"),
-               language=c("language", "langue", "sprache"),
-               # The English translation is uncertain for these
-               intro=c("insert", "encart"),
-               coverage=c("geo-localization", "localisation-geo"),
-               company=c("company", "societe"),
-               organisation=c("organisation"),
-               stocksymbol=c("stock-symbol", "symbole-boursier"),
-               industry=c("activity-sector", "secteur-activite"),
-               # Some translations are uncertain for these. Like most LN field
-               # codes, they don't appear for all sources.
-               pubcode=c("journal-code"),
-               loaddate=c("load-date", "date-chargement"),
-               graphic=c("graphic"),
-               dateline=c("dateline"),
-               # Below from the NY Times
-               doctype=c("document-type"),
-               url=c("url"),
-               highlight=c("highlight"),
-               name=c("name"),
-               correction=c("correction"),
-               correctiondate=c("correction-date"),
-               distribution=c("distribution"))
-
-getfield <- function(nodes, field) {
-    ind <- which(xml_attr(nodes, 'ln-possible-metadata') == field)
-    if(length(ind) > 1) {
-        warning("Multiple matches for field ", field, ": choosing the first from ", nodes[ind], "\n")
-        ind <- min(ind)
-    }
-    if(length(ind) == 1) {
-        x <- xml_children(xml_child(nodes[[ind]]))
-        if(length(x) > 1) {
-            # Read out the result, tag the node, return
-            xml_set_attr(nodes[ind], "ln-parsed-as", field)
-            xml_set_attr(nodes[ind], "ln-possible-metadata", NULL)
-            return(xml_text(x[[2]]))
-        }
-    }
-    character(0)
-}
-
-# Process chunked fields
-split_chunk <- function(str) {
-    if(length(str) > 0)
-        gsub(" \n?\\([[:digit:]]{2}%)|\n", "", strsplit(str, "; ")[[1]])
-    str
-}
-
-# These generate regexes to detect day and month names, for the date parsing code.
-# They should currently work in English, French, and your current configured R locale
-weekdays <- paste(c("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-                    "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
-                    weekdays(seq(as.Date("2018-01-01"), as.Date("2018-01-07"), by=1))),
-                  collapse="|")
-months <- paste(c("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
-                  "janvier", "f\u00e9vrier", "mars", "avril", "mai", "juin", "juillet", "ao\u00fbt", "septembre", "octobre", "novembre", "d\u00e9cembre",
-                  months(seq(as.Date("2018-01-01"), as.Date("2018-12-31"), by=31))),
-                collapse="|")
-
-parseDate <- function(s) {
-    # Parse date
-    date.split <- strsplit(s, " ")[[1]]
-    date.split <- date.split[date.split != ""]
-    strdate <- paste(gsub(",| |\\.", "", date.split[1]),
-                     gsub(",| |\\.", "", date.split[2]),
-                     gsub(",| |\\.", "", date.split[3]))
-    # English uses the first format, French the second one
-    s <- strptime(strdate, "%B %d %Y")
-    if(is.na(s)) s <- strptime(strdate, "%d %B %Y")
-    if(is.na(s) && strdate != "") {
-        # Try C locale, just in case
-        old.locale <- Sys.getlocale("LC_TIME")
-        Sys.setlocale("LC_TIME", "C")
-        s <- strptime(strdate, "%B %d %Y")
-        if(is.na(s)) s <- strptime(strdate, "%d %B %Y")
-        Sys.setlocale("LC_TIME", old.locale)
-
-        # A bug in Mac OS gives NA when start of month name matches an abbreviated name:
-        # http://www.freebsd.org/cgi/query-pr.cgi?pr=141939
-        # https://stat.ethz.ch/pipermail/r-sig-mac/2012-June/009296.html
-        # Add a workaround for French
-        if (Sys.info()["sysname"] == "Darwin")
-            s <- strptime(sub("[jJ]uillet", "07", strdate), "%d %m %Y")
-
-        if(is.na(s))
-            warning(print0("Could not parse document date \"", strdate, "\": ",
-                           tid, ". You may need to change the system locale to",
-                           " match that of the corpus. See LC_TIME in ",
-                           "?Sys.setlocale.\n"))
-    }
-    s
-}
-
-slugToFieldname <- function(slug) {
-    slug <- trimws(slug)
-    # Actual field codes are a single slug of upper-case characters and hyphens,
-    # followed by (just) a colon. The content is in a sibling <span>, so is not
-    # part of the slug. If we do get a slug of the form
-    # "CITY: WE'VE FAILED AGAIN" then that's probably a headline and we don't
-    # want it.
-    if (!grepl('^[-A-Z]+:$', slug)) return(NA)
-    slug <- tolower(gsub(":$", "", slug))
-    for (i in seq_along(fields)) {
-        if (slug %in% fields[[i]]) return(names(fields)[i])
-    }
-    paste0("UNKNOWN-", slug)
-}
-
-makeSeqs <- function(nums) {
-    # Identify contiguous sequences in a vector of numbers, returning a list
-    # of sequences
-    nums <- sort(nums)
-    seqs <- list()
-    currentseq <- NA
-    lastn <- NA
-    for (n in nums) {
-        if (is.na(lastn) || n != lastn + 1) {
-            currentseq <- as.character(n)
-            seqs[[currentseq]] <- n
-        } else {
-            seqs[[currentseq]] <- append(seqs[[currentseq]], n)
-        }
-        lastn <- n
-    }
-    seqs
-}
-
-getLongestContent <- function(nodes, nums) {
-    seqs <- makeSeqs(nums)
-    best_len <- 0
-    best_txt <- character(0)
-    for (seq in seqs) {
-        text <- sapply(xml_children(nodes[seq]), function(x)
-            paste(sapply(xml_children(x), function(y)
-                paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
-                collapse=" "))
-
-        work <- paste(text, collapse=" ")
-        work <- gsub('([[:space:]]){2,}', "\\1", work)
-        work <- trimws(work)
-        work <- strsplit(work, '[[:space:]]')[[1]]
-        if (length(work) > best_len) {
-            best_txt <- trimws(text)
-            best_len <- length(work)
-        }
-    }
-    best_txt
-}
-
 readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
     function(elem, language, id) {
         # The content of a LexisNexis HTML file are language-dependent,
@@ -171,6 +16,81 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         #
         # We keep track of which nodes have been processed, and what we got from
         # them, by adding attributes to nodes directly.
+
+        # Support functions
+        getfield <- function(nodes, field) {
+            ind <- which(xml_attr(nodes, 'ln-possible-metadata') == field)
+            if(length(ind) > 1) {
+                warning("Multiple matches for field ", field, ": choosing the first from ", nodes[ind], "\n")
+                ind <- min(ind)
+            }
+            if(length(ind) == 1) {
+                x <- xml_children(xml_child(nodes[[ind]]))
+                if(length(x) > 1) {
+                    # Read out the result, tag the node, return
+                    xml_set_attr(nodes[ind], "ln-parsed-as", field)
+                    xml_set_attr(nodes[ind], "ln-possible-metadata", NULL)
+                    return(xml_text(x[[2]]))
+                }
+            }
+            character(0)
+        }
+
+        slugToFieldname <- function(slug) {
+            slug <- trimws(slug)
+            # Actual field codes are a single slug of upper-case characters and hyphens,
+            # followed by (just) a colon. The content is in a sibling <span>, so is not
+            # part of the slug. If we do get a slug of the form
+            # "CITY: WE'VE FAILED AGAIN" then that's probably a headline and we don't
+            # want it.
+            if (!grepl('^[-A-Z]+:$', slug)) return(NA)
+            slug <- tolower(gsub(":$", "", slug))
+            for (i in seq_along(fields)) {
+                if (slug %in% fields[[i]]) return(names(fields)[i])
+            }
+            paste0("UNKNOWN-", slug)
+        }
+
+        makeSeqs <- function(nums) {
+            # Identify contiguous sequences in a vector of numbers, returning a list
+            # of sequences
+            nums <- sort(nums)
+            seqs <- list()
+            currentseq <- NA
+            lastn <- NA
+            for (n in nums) {
+                if (is.na(lastn) || n != lastn + 1) {
+                    currentseq <- as.character(n)
+                    seqs[[currentseq]] <- n
+                } else {
+                    seqs[[currentseq]] <- append(seqs[[currentseq]], n)
+                }
+                lastn <- n
+            }
+            seqs
+        }
+
+        getLongestContent <- function(nodes, nums) {
+            seqs <- makeSeqs(nums)
+            best_len <- 0
+            best_txt <- character(0)
+            for (seq in seqs) {
+                text <- sapply(xml_children(nodes[seq]), function(x)
+                    paste(sapply(xml_children(x), function(y)
+                        paste(trimws(xml_find_all(y, ".//text()")), collapse="\n")),
+                        collapse=" "))
+
+                work <- paste(text, collapse=" ")
+                work <- gsub('([[:space:]]){2,}', "\\1", work)
+                work <- trimws(work)
+                work <- strsplit(work, '[[:space:]]')[[1]]
+                if (length(work) > best_len) {
+                    best_txt <- trimws(text)
+                    best_len <- length(work)
+                }
+            }
+            best_txt
+        }
 
         # Temporary id, until we've parsed the date etc.
         tid <- paste0(basename(elem$uri), ":", id)

@@ -217,23 +217,27 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {
-            m[["datetimestamp"]] <- parseDate(vals[datepos[1]])
+            m[["datetimestamp"]] <- parseDate(vals[datepos[1]], tid)
+            m[["edition"]] <- parseEdition(vals[datepos[1]], tid)
             xml_set_attr(nodes[datepos[1]], "ln-parsed-as", "datetimestamp")
             headingpos <- setdiff(1:4, datepos[1])[3]
         } else {
             # Can't find it! Guess...
-            m[["datetimestamp"]] <- parseDate(vals[3])
+            m[["datetimestamp"]] <- parseDate(vals[3], tid)
+            m[["edition"]] <- parseEdition(vals[3], tid)
             xml_set_attr(nodes[3], "ln-parsed-as", "datetimestamp")
             headingpos <- 4
+        }
+
+        if(is.na(m[["datetimestamp"]])) {
+            warning("No date: ", tid, ". Falling back to 'LOAD-DATE' field.\n")
+            m[["datetimestamp"]] <- parseDate(lookup_field("loaddate"), tid)
         }
 
         if (!xml_has_attr(nodes[headingpos], "ln-parsed-as")) {
             m[["heading"]] <- vals[headingpos]
             xml_set_attr(nodes[headingpos], "ln-parsed-as", "heading")
-        }# else {
-#            warning("No heading found for ", tid, "\n")
-#            heading <- character(0)
-#        }
+        }
 
         # Position of main text can vary, but we should have tagged everything else parseable.
         contentpos <- which(!xml_has_attr(nodes, "ln-parsed-as"))
@@ -302,8 +306,9 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         if (length(pubcode) == 0) {
             pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
         }
+
         m[["id"]] <- paste(pubcode,
-                           if(!is.na(m[["datetimestamp"]])) strftime(m[["datetimestamp"]], format="%Y%m%d") else "",
+                           if(!is.na(m[["datetimestamp"]])) strftime(m[["datetimestamp"]], format="%Y%m%d") else strftime(lookup_field("loaddate")),
                            id, sep="")
 
         #####

@@ -31,7 +31,7 @@ LexisNexisSource <- function(x, encoding = "UTF-8") {
                 "\n")
         content <- content[!errtexts]
     }
-    
+
     SimpleSource(encoding, length(content),
                  content=content, uri=x,
                  reader=readLexisNexisHTML, class="LexisNexisSource")

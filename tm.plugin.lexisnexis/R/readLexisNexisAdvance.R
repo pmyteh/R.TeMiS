@@ -6,18 +6,18 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
             # line, followed by a colon and a non-breaking space (U+00A0).
             paste0('^(', paste0(fields[[field]], collapse='|'), '):\u00a0[ \u00a0]*')
         }
-        
+
         getParaNumberForField <- function(paras, field, tid) {
             ind <- which(grepl(regexFromFields(field), paras, ignore.case=TRUE))
             if(length(ind) > 1) {
                 warning("Multiple matches for field ", field, ": ", tid, ". Choosing the first from ", paras[ind], "\n")
                 ind <- min(ind)
             }
-            
+
             if (length(ind) == 1) return(ind)
             integer(0)
         }
-        
+
         # The contents of a LexisNexis file are language-dependent,
         # inconsistent, only partially semantically tagged, and don't follow a
         # hierarchical format which is easy for parsing.
@@ -36,7 +36,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
 
         # Temporary id, until we've parsed the date etc.
         tid <- paste0(basename(elem$uri), ":", id)
-        
+
         # Set up master metadata list
         m <- list()
 
@@ -49,17 +49,17 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         paras <- paras[paras != ""]
         if(tail(paras, 1) == "End of Document")
             paras <- head(paras, -1)
-        
+
         # Split out "Classification" section
         classification_start <- max(which(grepl('^Classification$', paras)))
         class_paras <- tail(paras, -classification_start)
         paras <- head(paras, classification_start-1)
-        
+
         # Split out content ("Body") and header sections
         body_start <- min(which(grepl('^Body$', paras)))
         header_paras <- head(paras, body_start-1)
         paras <- tail(paras, -body_start)
-        
+
         # Split out graphic section (which may be missing)
         poss_graphics <- grepl('^Graphic$', paras)
         if (any(poss_graphics)) {
@@ -71,7 +71,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         }
 
         content <- paras
-        
+
         #####
         # 2: Metadata fields by position
         #####
@@ -88,7 +88,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         #####
         # 3: Metadata fields by tagname
         #####
-        
+
         exflds <- list()
         # We detect, and parse, those fieldnames identified in `fields`.
         # We don't necessarily to anything with these. Later we take the fields
@@ -162,17 +162,17 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
             warning("No content (and no graphic tag) found: ", tid, "\n")
             content <- ""
         }
-        
+
         if (is.na(m[["rights"]])) {
             warning("Could not parse copyright notice: ", tid, ". This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n")
             m[["rights"]] <- character(0)
         }
-        
+
         if(is.na(m[["datetimestamp"]])) {
             warning("No date: ", tid, ". Falling back to 'LOAD-DATE' field.\n")
             m[["datetimestamp"]] <- parseDateAndEdition(lookup_field("loaddate"), tid, language=m[["language"]])[[1]]
         }
-        
+
         # Generate a unique id
         pubcode <- lookup_field("pubcode")
         if (length(pubcode) == 0) {
@@ -184,7 +184,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
                            if(!is.na(m[["datetimestamp"]])) strftime(m[["datetimestamp"]], format="%Y%m%d") else strftime(lookup_field("loaddate")),
                            id, sep="")
 
-        
+
         #####
         # 6: Generate and return a PlainTextDocument
         #####

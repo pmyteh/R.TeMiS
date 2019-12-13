@@ -48,3 +48,12 @@ file <- system.file("texts", "lexisnexis_test_no_content.html",
                     package = "tm.plugin.lexisnexis")
 corpus <- Corpus(LexisNexisSource(file))
 stopifnot(all(sapply(corpus, function(x) length(x$content) == 0))) # No body content
+
+# LexisNexis Advance, .docx format, two documents.
+file <- system.file("texts", "lexisnexis_advance_test_en.docx",
+                    package = "tm.plugin.lexisnexis")
+corpus <- Corpus(LexisNexisAdvanceSource(file))
+stopifnot(corpus[[1]]$meta$id == "TimesofI201912101",
+          corpus[[1]]$meta$graphic == character(0),
+          corpus[[2]]$meta$id == "IIN201912102",
+          corpus[[2]]$meta$graphic == "Mi bibendum neque egestas congue quisque egestas diam.")

@@ -153,6 +153,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         # Ensure heuristically extracted items are sane
         m[["author"]] <- if(length(m[["author"]]) > 0 && !is.na(m[["author"]])) m[["author"]] else character(0)
         m[["heading"]] <- if(length(m[["heading"]]) > 0 && !is.na(m[["heading"]])) m[["heading"]] else character(0)
+        m[["heading"]] <- m[["heading"]][m[["heading"]] != "No Headline In Original"]
         m[["origin"]] <- if(length(m[["origin"]]) > 0 && !is.na(m[["origin"]])) m[["origin"]] else character(0)
 
         # No content happens occasionally, almost always because the article is

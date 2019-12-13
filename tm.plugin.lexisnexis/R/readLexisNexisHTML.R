@@ -217,21 +217,14 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {
-            m[["datetimestamp"]] <- parseDate(vals[datepos[1]], tid)
-            m[["edition"]] <- parseEdition(vals[datepos[1]], tid)
+            date_ed_str <- vals[datepos[1]]
             xml_set_attr(nodes[datepos[1]], "ln-parsed-as", "datetimestamp")
             headingpos <- setdiff(1:4, datepos[1])[3]
         } else {
             # Can't find it! Guess...
-            m[["datetimestamp"]] <- parseDate(vals[3], tid)
-            m[["edition"]] <- parseEdition(vals[3], tid)
+            date_ed_str <- vals[3]
             xml_set_attr(nodes[3], "ln-parsed-as", "datetimestamp")
             headingpos <- 4
-        }
-
-        if(is.na(m[["datetimestamp"]])) {
-            warning("No date: ", tid, ". Falling back to 'LOAD-DATE' field.\n")
-            m[["datetimestamp"]] <- parseDate(lookup_field("loaddate"), tid)
         }
 
         if (!xml_has_attr(nodes[headingpos], "ln-parsed-as")) {
@@ -280,14 +273,16 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["industry"]] <- split_chunk(m[["industry"]])
 
         # Standardise language, using ISO 639 lookup table where possible
-        if(length(m[["language"]]) > 0) {
-            langstr <- strsplit(m[["language"]], "; ")[[1]][1]
-            m[["language"]] <- ISO_639_2[match(tolower(langstr), tolower(ISO_639_2[["Name"]])), "Alpha_2"]
-            if(is.na(m[["language"]]))
-                m[["language"]] <- tolower(langstr)
-        }
-        else {
-            m[["language"]] <- character(0)
+        m[["language"]] <- standardiseLanguage(m[["language"]], tid)
+
+        # Extract datetimestamp and edition
+        l <- parseDateAndEdition(date_ed_str, tid, language=m[["language"]])
+        m[["datetimestamp"]] <- l[[1]]
+        m[["edition"]] <- l[[2]]
+
+        if(is.na(m[["datetimestamp"]])) {
+            warning("No date: ", tid, ". Falling back to 'LOAD-DATE' field.\n")
+            m[["datetimestamp"]] <- parseDateAndEdition(lookup_field("loaddate"), tid)[[1]]
         }
 
         # Extract numeric wordcount

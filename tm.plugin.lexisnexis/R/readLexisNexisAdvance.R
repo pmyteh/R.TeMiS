@@ -79,8 +79,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         #              then the date/edition, then the copyright notice.
         m[["heading"]] <- header_paras[1]
         m[["origin"]] <- header_paras[2]
-        m[["datetimestamp"]] <- parseDate(header_paras[3], tid)
-        m[["edition"]] <- parseEdition(header_paras[3], tid)
+        date_ed_str <- header_paras[3]
         m[["rights"]] <- header_paras[4]
         # Remaining header items are parseable metadata tags
         class_paras <- c(tail(header_paras, -4), class_paras)
@@ -139,15 +138,11 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         m[["industry"]] <- split_chunk(m[["industry"]])
 
         # Standardise language, using ISO 639 lookup table where possible
-        if(length(m[["language"]]) > 0) {
-            langstr <- strsplit(m[["language"]], "; ")[[1]][1]
-            m[["language"]] <- ISO_639_2[match(tolower(langstr), tolower(ISO_639_2[["Name"]])), "Alpha_2"]
-            if(is.na(m[["language"]]))
-                m[["language"]] <- tolower(langstr)
-        }
-        else {
-            m[["language"]] <- character(0)
-        }
+        m[["language"]] <- standardiseLanguage(m[["language"]], tid)
+
+        l <- parseDateAndEdition(date_ed_str, tid, language=m[["language"]])
+        m[["datetimestamp"]] <- l[[1]]
+        m[["edition"]] <- l[[2]]
 
         # Extract numeric wordcount
         if(length(m[["wordcount"]]) > 0)
@@ -175,7 +170,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         
         if(is.na(m[["datetimestamp"]])) {
             warning("No date: ", tid, ". Falling back to 'LOAD-DATE' field.\n")
-            m[["datetimestamp"]] <- parseDate(lookup_field("loaddate"), tid)
+            m[["datetimestamp"]] <- parseDateAndEdition(lookup_field("loaddate"), tid, language=m[["language"]])[[1]]
         }
         
         # Generate a unique id
@@ -185,6 +180,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         }
 
         m[["id"]] <- paste(pubcode,
+                           # FIXME: Else shouldn't be called here, and we need various other changes to this field to ensure uniqueness
                            if(!is.na(m[["datetimestamp"]])) strftime(m[["datetimestamp"]], format="%Y%m%d") else strftime(lookup_field("loaddate")),
                            id, sep="")
 

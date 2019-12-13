@@ -179,10 +179,11 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
             pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
         }
 
-        m[["id"]] <- paste(pubcode,
-                           # FIXME: Else shouldn't be called here, and we need various other changes to this field to ensure uniqueness
-                           if(!is.na(m[["datetimestamp"]])) strftime(m[["datetimestamp"]], format="%Y%m%d") else strftime(lookup_field("loaddate")),
-                           id, sep="")
+        m[["id"]] <- paste0(pubcode,
+                            strftime(m[["datetimestamp"]], format="%Y%m%d"),
+                            id,
+                            "-",
+                            base::sample(LETTERS, 8, TRUE))
 
 
         #####

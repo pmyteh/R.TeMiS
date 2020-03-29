@@ -18,8 +18,13 @@ file <- system.file("texts", "lexisnexis_test_copyright_error.html",
                     package = "tm.plugin.lexisnexis")
 corpus <- suppressWarnings(Corpus(LexisNexisSource(file)))
 stopifnot(length(corpus) == 1,
-          corpus[[1]]$meta$id == "TheDaily201812311",
           length(corpus[[1]]$meta$rights) == 0)
+if (getOption("LNUseDateparser", default=FALSE)) {
+  stopifnot(corpus[[1]]$meta$id == "TheDaily201812311-83468adb")
+} else {
+  stopifnot(corpus[[1]]$meta$id == "TheDaily201812311-0584d784")
+}
+
 
 # A set of examples of documents with multi-part main texts. That is, the main
 # article text isn't contained within a single top-level <div>, but consists of
@@ -53,7 +58,14 @@ stopifnot(all(sapply(corpus, function(x) length(x$content) == 0))) # No body con
 file <- system.file("texts", "lexisnexis_advance_test_en.docx",
                     package = "tm.plugin.lexisnexis")
 corpus <- Corpus(LexisNexisAdvanceSource(file))
-stopifnot(corpus[[1]]$meta$id == "TimesofI201912101",
-          corpus[[1]]$meta$graphic == character(0),
-          corpus[[2]]$meta$id == "IIN201912102",
+# FIXME: The date objects returned from the two date parsers are different! One
+# is POSIXct, the other POSIXlt.
+if (getOption("LNUseDateparser", default=FALSE)) {
+  stopifnot(corpus[[1]]$meta$id == "TimesofI201912101-03685729",
+            corpus[[2]]$meta$id == "IIN201912102-56acf946")
+} else {
+  stopifnot(corpus[[1]]$meta$id == "TimesofI201912101-95342bda",
+            corpus[[2]]$meta$id == "IIN201912102-ffab207f")
+}
+stopifnot(corpus[[1]]$meta$graphic == character(0),
           corpus[[2]]$meta$graphic == "Mi bibendum neque egestas congue quisque egestas diam.")

@@ -75,14 +75,39 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         #####
         # 2: Metadata fields by position
         #####
-        # The first header item is the headline, then the publication,
+        # The first header item is normally the headline, then the publication,
         #              then the date/edition, then the copyright notice.
+        # Sadly, these fields may be missing - especially the publication, which
+        # is missing for some Times articles
+
+        # FIXME: handle missing origin line
+        cr <- which(grepl("^Copyright", header_paras))
+        if (any(cr)) {
+            m[["rights"]] <- header_paras[[max(cr)]]
+            # Remaining header items are parseable metadata tags
+            class_paras <- c(tail(header_paras, -max(cr)), class_paras)
+        } else {
+            warning("Could not parse copyright notice: ", tid, ". This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n")
+            m[["rights"]] <- character(0)
+            class_paras <- c(tail(header_paras, -4), class_paras)
+        }
+
         m[["heading"]] <- header_paras[1]
-        m[["origin"]] <- header_paras[2]
-        date_ed_str <- header_paras[3]
-        m[["rights"]] <- header_paras[4]
-        # Remaining header items are parseable metadata tags
-        class_paras <- c(tail(header_paras, -4), class_paras)
+
+        if (max(cr) >= 4) {
+            m[["origin"]] <- header_paras[2]
+            date_ed_str <- header_paras[3]
+        } else if (max(cr) == 3) {
+            m[["origin"]] <- character(0)
+            date_ed_str <- header_paras[2]
+        } else {
+            m[["origin"]] <- character(0)
+            date_ed_str <- ""
+            warning("Unable to parse headers: ", tid, "\n")
+        }
+
+        # FIXME
+        if (max(cr) > 4) warning("Unexpected headers found:", tid, "; ", head(header_paras, max(cr)-1)[-c(1,2,3)], "\n")
 
 
         #####

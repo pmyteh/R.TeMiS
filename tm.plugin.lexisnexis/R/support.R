@@ -36,32 +36,6 @@ split_chunk <- function(str) {
   str
 }
 
-if (getOption("LNUseDateparser", default=FALSE)) {
-  # Check to see if reticulate, python3, and the dateparser python library are available
-  if (require(reticulate, quietly=TRUE)) {
-    reticulate::use_python(python = Sys.which("python3"))
-    dateparser <- NULL
-    try({dateparser <- reticulate::import("dateparser")}, silent=TRUE)
-    if (is.null(dateparser)) {
-      warning("Unable to load the dateparser package from python")
-      options("LNUseDateparser"=FALSE)
-    }
-  } else {
-    warning("Unable to load the reticulate package.")
-    options("LNUseDateparser"=FALSE)
-  }
-
-  if (!getOption("LNUseDateparser", default=FALSE)) {
-    warning("Cannot use dateparser library; using build-in date parsing code. ",
-            "This message can be avoided either by:\n",
-            "(1) (a) Ensuring that Python 3 is installed on your system;\n",
-            "    (b) Installing the R 'reticulate' package; and\n",
-            "    (c) Installing the Python 'dateparser' package\n",
-            "or\n",
-            "(2) Not setting options('LNUseDateparser' = TRUE).")
-  }
-}
-
 # These generate regexes to detect day and month names, for the date parsing code.
 # They should currently work in English, French, and your current configured R locale
 weekdays <- paste(c("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
@@ -107,19 +81,20 @@ parseDateAndEdition <- function(s, tid, language=c("en", "fr", "de")) {
     # anything if the day/month is missing (as
     # otherwise you're in danger of getting the
     # *current* day/month)
-    dpsettings <- dict('RETURN_AS_TIMEZONE_AWARE'=FALSE,
-                       'STRICT_PARSING'=TRUE)
+    dpsettings <- reticulate::dict('RETURN_AS_TIMEZONE_AWARE'=FALSE,
+                                   'STRICT_PARSING'=TRUE)
 
     # Even dateparser is not perfect. Here we munge some known issues:
     #
     # "Dienstag 10.Dezember 2019" -> "Dienstag 10. Dezember 2019"
     s <- gsub('([0-9]\\.)([A-Za-z])', '\\1 \\2', s)
 
+    dateparser <- reticulate::import("dateparser")
     tup <- dateparser$search$search_dates(s, languages=ll, settings=dpsettings)[[1]]
     # If dateparser finds only a year, it can try to parse it erroneously.
     # 2019 can become [20]20[/]1[/]9: 9 Jan 2020. See
     # https://github.com/scrapinghub/dateparser/issues/356
-    if (!is.null(tup) & grepl('^[0-9]{4}$', tup[[1]])) tup <- NULL
+    if (!is.null(tup) && grepl('^[0-9]{4}$', tup[[1]])) tup <- NULL
 
     # TODO: if (is.null(tup)) could try reparsing without languages restriction
     #       (slow but rare).
@@ -186,6 +161,7 @@ standardiseLanguage <- function(v, tid) {
   # Take the language field given by LN and try to convert into a two-letter
   # ISO_639_2 code.
   if(length(v) > 0) {
+    ISO_639_2 <- ISOcodes::ISO_639_2
     langstr <- strsplit(v, "; ")[[1]][1]
     lang <- ISO_639_2[match(tolower(langstr), tolower(ISO_639_2[["Name"]])), "Alpha_2"]
     # Some alpha2 codes have multiple English 'language' names: 'Dutch; Flemish'
@@ -205,5 +181,4 @@ standardiseLanguage <- function(v, tid) {
     character(0)
   }
 }
-
 

@@ -174,7 +174,10 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
             m[["datetimestamp"]] <- parseDateAndEdition(lookup_field("loaddate"), tid, language=m[["language"]])[[1]]
         }
 
-        # Generate a unique id
+        # Generate a unique id. This is ideally the (unique) publication code
+        # plus the date, plus the file sequence number, plus a shortened hash of
+        # the metadata to ensure it is actually unique. Not all records
+        # have a publication code, though, so fall back as needed.
         pubcode <- lookup_field("pubcode")
         if (length(pubcode) == 0) {
             pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
@@ -184,7 +187,8 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
                             strftime(m[["datetimestamp"]], format="%Y%m%d"),
                             id,
                             "-",
-                            base::sample(LETTERS, 8, TRUE))
+                            substr(digest(m, algo="md5", raw=FALSE), 1, 8)
+        )
 
 
         #####

@@ -296,7 +296,10 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["heading"]] <- if(length(m[["heading"]]) > 0 && !is.na(m[["heading"]])) m[["heading"]] else character(0)
         m[["origin"]] <- if(length(m[["origin"]]) > 0 && !is.na(m[["origin"]])) m[["origin"]] else character(0)
 
-        # Generate a unique id
+        # Generate a unique id. This is ideally the (unique) publication code
+        # plus the date, plus the file sequence number, plus a shortened hash of
+        # the metadata to ensure it is actually unique. Not all records
+        # have a publication code, though, so fall back as needed.
         pubcode <- lookup_field("pubcode")
         if (length(pubcode) == 0) {
             pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
@@ -306,7 +309,9 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
                             strftime(m[["datetimestamp"]], format="%Y%m%d"),
                             id,
                             "-",
-                            base::sample(LETTERS, 8, TRUE))
+                            substr(digest(m, algo="md5", raw=FALSE), 1, 8)
+        )
+
         #####
         # 6: Generate and return a PlainTextDocument
         #####

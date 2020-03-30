@@ -146,7 +146,8 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         # we're using them as metadata, just that they're in the fields list
         # and being successfully pulled out.
         residualcodes <- class_paras[-unlist(exflds)]
-        if (length(residualcodes) > 0) warning("Potential field code lines detected which are not currently handled:\n",
+        if (length(residualcodes) > 0) warning("Potential field code lines detected which are not currently handled: ",
+                                        tid, ".\n",
                                         paste("\t", residualcodes, collapse="\n"),
                                         "\n")
 

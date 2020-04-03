@@ -100,7 +100,7 @@ parseDateAndEdition <- function(s, tid, language=c("en", "fr", "de")) {
     #       (slow but rare).
 
     if (!is.null(tup)) {
-      dt <- py_to_r(tup[[2]])
+      dt <- reticulate::py_to_r(tup[[2]])
       # tup[[1]] is the part of s matched as a date.
       edition <- gsub(tup[[1]], '', s, fixed=TRUE)
       edition <- gsub("[[:space:]]+", " ", edition)
@@ -168,7 +168,7 @@ standardiseLanguage <- function(v, tid) {
     # is one prominent one. This will not match above.
     # Try harder (just with those languages that *have* an alpha2 code, not Middle Dutch)
     if(is.na(lang)) {
-      pos <- first(grep(tolower(langstr), tolower(ISO_639_2[!is.na(ISO_639_2$Alpha_2),][["Name"]]), fixed=TRUE))
+      pos <- head(grep(tolower(langstr), tolower(ISO_639_2[!is.na(ISO_639_2$Alpha_2),][["Name"]]), fixed=TRUE), n=1L)
       if (!is.na(pos)) lang <- ISO_639_2[!is.na(ISO_639_2$Alpha_2),]$Alpha_2[pos]
     }
     if(is.na(lang)) {

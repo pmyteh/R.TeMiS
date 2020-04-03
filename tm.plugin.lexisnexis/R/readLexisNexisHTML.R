@@ -254,7 +254,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
 
         # No content happens occasionally, almost always because the article is
         # a photo (possibly with a heading and a caption) without a text body.
-        if ((is.na(content) || length(content) == 0 || identical(content,"")) &&
+        if ((all(is.na(content)) || length(content) == 0 || identical(content,"")) &&
              length(m["graphic"]) == 0) {
             warning("No content (and no graphic tag) found: ", tid, "\n")
             content <- ""

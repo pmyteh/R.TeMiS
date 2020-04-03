@@ -14,7 +14,7 @@
     }
 
     if (getOption("LNUseDateparser", default=FALSE)) {
-      message("tm.plugin.lexisnexis: Using Python's dateparser library")
+      packageStartupMessage("tm.plugin.lexisnexis: Using Python's dateparser library")
     } else {
       warning("Cannot use dateparser library; using build-in date parsing code. ",
               "This message can be avoided either by:\n",
@@ -25,6 +25,6 @@
               "(2) Not setting options('LNUseDateparser' = TRUE).")
     }
   } else {
-    message("tm.plugin.lexisnexis: Using built-in date parsing code.")
+    packageStartupMessage("tm.plugin.lexisnexis: Using built-in date parsing code.")
   }
 }

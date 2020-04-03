@@ -1,5 +1,7 @@
-R.TeMiS.Rproj
+*.Rproj
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+*.Rcheck
+tm.plugin.*.tar.gz

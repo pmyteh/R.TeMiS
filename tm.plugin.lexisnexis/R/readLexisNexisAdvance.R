@@ -132,7 +132,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
 #        m[["graphic"]] <- lookup_field("graphic")
         m[["correction"]] <- lookup_field("correction")
         # These are processed later
-        m[["language"]] <- lookup_field("language")
+        m[["language"]] <- if (!is.na(language)) language else lookup_field("language")
         m[["wordcount"]] <- lookup_field("length")
         # These are split later
         m[["intro"]] <- lookup_field("intro")
@@ -163,8 +163,9 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         m[["stocksymbol"]] <- split_chunk(m[["stocksymbol"]])
         m[["industry"]] <- split_chunk(m[["industry"]])
 
-        # Standardise language, using ISO 639 lookup table where possible
-        m[["language"]] <- standardiseLanguage(m[["language"]], tid)
+        # Standardise language, using ISO 639 lookup table where possible,
+        # if we weren't given it explicitly.
+        if (is.na(language)) m[["language"]] <- standardiseLanguage(m[["language"]], tid)
 
         l <- parseDateAndEdition(date_ed_str, tid, language=m[["language"]])
         m[["datetimestamp"]] <- l[[1]]

@@ -214,7 +214,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         # TODO: The edition name (where present) is in the same <p> as the
         # date (albeit in a separate <span> and after a <br>), on the following
         # line. We should consider extracting this.
-        datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", months, weekdays, months),
+        datepos <- which(grepl(sprintf("(%s).*[0-9]{4}.*(%s)|(%s) [0-9]{2}, [0-9]{4}", monthnames, weeknames, monthnames),
                                vals[1:5], ignore.case=TRUE))
         if(length(datepos) > 0) {
             date_ed_str <- vals[datepos[1]]

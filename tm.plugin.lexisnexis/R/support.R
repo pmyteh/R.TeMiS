@@ -99,47 +99,73 @@ parseDateAndEdition <- function(s, tid, language=getPossibleLangs()) {
   # "Dienstag 10.Dezember 2019" -> "Dienstag 10. Dezember 2019"
   s <- gsub('([0-9]\\.)([A-Za-z])', '\\1 \\2', s)
   
+  result <- NULL
   # Try the dateparser option if it's available and we want it
-  if (getOption("LNUseDateparser", default=FALSE)) {
-    language <- language[nchar(language) == 2]
-    if (length(language) == 0) {
-      ll <- NULL
-    } else if (length(language) == 1) {
-      ll <- list(language)
-    } else {
-      ll <- language
-    }
+  if (getOption("LNUseDateparser", default=FALSE) && requireNamespace("reticulate")) {
+    result <- parseDateAndEditionDateparser(s, tid, language)
+  }
+  
+  if (is.null(result)) result <- parseDateAndEditionClassic(s, tid, language)
 
-    # Don't create a timezone (fairly useless given these are only days anyway);
-    # don't return anything if the day/month is missing (as otherwise you're in
-    # danger of getting the *current* day/month)
-    dpsettings <- reticulate::dict('RETURN_AS_TIMEZONE_AWARE'=FALSE,
-                                   'STRICT_PARSING'=TRUE)
+  result
+}
 
-    dateparser <- reticulate::import("dateparser")
-    tup <- dateparser$search$search_dates(s, languages=ll, settings=dpsettings)[[1]]
+parseDateAndEditionDateparser <- function(s,
+                                          tid,
+                                          language=getPossibleLangs()) {
+  language <- language[nchar(language) == 2]
+  if (length(language) == 0) {
+    ll <- NULL
+  } else if (length(language) == 1) {
+    ll <- list(language)
+  } else {
+    ll <- language
+  }
+
+  # Don't create a timezone (fairly useless given these are only days anyway);
+  # don't return anything if the day/month is missing (as otherwise you're in
+  # danger of getting the *current* day/month)
+  dpsettings <- reticulate::dict('RETURN_AS_TIMEZONE_AWARE'=FALSE,
+                                 'STRICT_PARSING'=TRUE)
+
+  dateparser <- reticulate::import("dateparser")
+  tup <- dateparser$search$search_dates(s, languages=ll, settings=dpsettings)[[1]]
+  # Test for various kinds of misparsing
+  if (!is.null(tup)) {
+    parseddatestring <- tup[[1]]
+    dt <- reticulate::py_to_r(tup[[2]])
     # If dateparser finds only a year, it can try to parse it erroneously.
     # 2019 can become [20]20[/]1[/]9: 9 Jan 2020. See
     # https://github.com/scrapinghub/dateparser/issues/356
-    if (!is.null(tup) && grepl('^[0-9]{4}$', tup[[1]])) tup <- NULL
+    # Similarly, it is capable of picking up tiny substrings and treating
+    # those as the whole date.
+    
+    # If the 'date' it's detected is shorter than 6 characters ('1/1/20') then
+    # abandon and try the built-in classifier.
+#      if (grepl('^[0-9]{4}$', tup[[1]])) tup <- NULL
+    if (nchar(parseddatestring) < 6) tup <- NULL
 
-    # TODO: if (is.null(tup)) could try reparsing without languages restriction
-    #       (slow but rare).
-
-    if (!is.null(tup)) {
-      dt <- reticulate::py_to_r(tup[[2]])
-      # tup[[1]] is the part of s matched as a date.
-      # \Q...\E cause the date part to be treated as literal.
-      edition <- gsub(glue('^.\\Q*{tup[[1]]}\\E'), '', s)
-      edition <- cleanUpEdition(edition)
-      return(list(date=as.POSIXct(dt), edition=edition))
-    } else {
-      warning("Could not parse document date/edition string for ",
-              tid, " using the dateparser library: ", s,
-              ". Falling back to built-in code.\n")
-    }
+  }
+  # TODO: if (is.null(tup)) could try reparsing without languages restriction
+  #       (slow but rare).
+    
+  if (is.null(tup)) {
+#    warning("Could not parse document date/edition string for ",
+#            tid, " using the dateparser library: ", s,
+#            ". Falling back to built-in code.\n")
+    # Try again without a language restriction if the first try fails
+    if (!is.null(ll)) return(parseDateAndEditionDateparser(s, tid, character(0)))
+    return(NULL)
   }
   
+  # tup[[1]] is the part of s matched as a date.
+  # \Q...\E cause the date part to be treated as literal.
+  edition <- gsub(paste0('^.*\\Q', tup[[1]], '\\E'), '', s)
+  edition <- cleanUpEdition(edition)
+  list(date=as.POSIXct(dt), edition=edition)
+}
+  
+parseDateAndEditionClassic <- function(s, tid, language=getPossibleLangs()) {
   # This is a bit of a guess. The first three elements are *generally*
   # month day year or day month year (with the fourth day-of-the-week), but
   # this is not always true ("Mardi 10 Décembre 2019")

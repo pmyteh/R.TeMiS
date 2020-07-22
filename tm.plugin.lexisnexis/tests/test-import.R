@@ -22,8 +22,23 @@ stopifnot(length(corpus) == 1,
 if (getOption("LNUseDateparser", default=FALSE)) {
   stopifnot(corpus[[1]]$meta$id == "TheDaily201812311-83468adb")
 } else {
-  stopifnot(corpus[[1]]$meta$id == "TheDaily201812311-0584d784")
+  stopifnot(corpus[[1]]$meta$id == "TheDaily201812311-080e694f")
 }
+
+# Date formatting issues
+usedateparser <- getOption("LNUseDateparser", default=FALSE)
+for (o in c(TRUE, FALSE)) {
+  options(LNUseDateparser=o)
+  file <- system.file("texts", "lexisnexis_test_date.html",
+                      package = "tm.plugin.lexisnexis")
+  corpus <- Corpus(LexisNexisSource(file))
+  dt <- as.POSIXlt(meta(corpus[[1]], "datetimestamp"))
+  stopifnot(dt$year + 1900 == 2008,
+            dt$mon + 1 == 7,
+            dt$mday == 26)
+  
+}
+options(LNUseDateparser=usedateparser)
 
 
 # A set of examples of documents with multi-part main texts. That is, the main
@@ -58,14 +73,8 @@ stopifnot(all(sapply(corpus, function(x) length(x$content) == 0))) # No body con
 file <- system.file("texts", "lexisnexis_advance_test_en.docx",
                     package = "tm.plugin.lexisnexis")
 corpus <- Corpus(LexisNexisAdvanceSource(file))
-# FIXME: The date objects returned from the two date parsers are different! One
-# is POSIXct, the other POSIXlt.
-if (getOption("LNUseDateparser", default=FALSE)) {
-  stopifnot(corpus[[1]]$meta$id == "TimesofI201912101-03685729",
-            corpus[[2]]$meta$id == "IIN201912102-56acf946")
-} else {
-  stopifnot(corpus[[1]]$meta$id == "TimesofI201912101-95342bda",
-            corpus[[2]]$meta$id == "IIN201912102-ffab207f")
-}
+stopifnot(corpus[[1]]$meta$id == "TimesofI201912101-8b2651f7",
+          corpus[[2]]$meta$id == "IIN201912102-dcdd1137")
+
 stopifnot(corpus[[1]]$meta$graphic == character(0),
           corpus[[2]]$meta$graphic == "Mi bibendum neque egestas congue quisque egestas diam.")

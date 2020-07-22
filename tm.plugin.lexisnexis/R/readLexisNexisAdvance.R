@@ -209,15 +209,15 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         if (length(pubcode) == 0) {
             pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
         }
-
         m[["id"]] <- paste0(pubcode,
                             strftime(m[["datetimestamp"]], format="%Y%m%d"),
                             id,
                             "-",
-                            substr(digest(m, algo="md5", raw=FALSE), 1, 8)
+                            substr(digest::digest(as.character(m),
+                                                  algo="md5",
+                                                  raw=FALSE),
+                                   1, 8)
         )
-
-
         #####
         # 6: Generate and return a PlainTextDocument
         #####

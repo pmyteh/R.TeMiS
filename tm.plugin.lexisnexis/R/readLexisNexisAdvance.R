@@ -1,14 +1,15 @@
 readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
     function(elem, language, id) {
-        regexFromFields <- function(field){
+        regexFromFields <- function(field) {
             # With LexisNexis Advance the field codes are no longer all uppercase, but
             # (at least in .docx) they are now all consistently at the start of the
             # line, followed by a colon and a non-breaking space (U+00A0).
-            paste0('^(', paste0(fields[[field]], collapse='|'), '):\u00a0[ \u00a0]*')
+            paste0('^(', paste0(fields[[field]], collapse='|'), '):\\h+')
+#            paste0('^(', paste0(fields[[field]], collapse='|'), '):\u00a0[ \u00a0]*')
         }
 
         getParaNumberForField <- function(paras, field, tid) {
-            ind <- which(grepl(regexFromFields(field), paras, ignore.case=TRUE))
+            ind <- which(grepl(regexFromFields(field), paras, ignore.case=TRUE, perl=TRUE))
             if(length(ind) > 1) {
                 warning("Multiple matches for field ", field, ": ", tid, ". Choosing the first from ", paras[ind], "\n")
                 ind <- min(ind)
@@ -122,7 +123,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
     	    exflds[[field]] <- getParaNumberForField(class_paras, field, tid)
         }
 
-        lookup_field <- function(key) gsub(regexFromFields(key), "", class_paras[exflds[[key]]], ignore.case=TRUE)
+        lookup_field <- function(key) gsub(regexFromFields(key), "", class_paras[exflds[[key]]], ignore.case=TRUE, perl=TRUE)
 
         # These are raw string (or character(0)) lookups; those which need
         # splitting, or further parsing are processed later.

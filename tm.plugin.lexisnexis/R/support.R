@@ -61,17 +61,17 @@ weeknames <- paste(c("monday", "tuesday", "wednesday", "thursday", "friday", "sa
                      "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag",
                      weekdays(seq(as.Date("2018-01-01"), as.Date("2018-01-07"), by=1))),
                   collapse="|")
-# monthnames <- paste(c("january", "february", "march", "april", "may",
-#                       "june", "july", "august", "september", "october",
-#                       "november", "december",
-#                       "janvier", "f\u00e9vrier", "fevrier", "mars", "avril", "mai",
-#                       "juin", "juillet", "ao\u00fbt", "aout", "septembre",
-#                       "octobre", "novembre", "d\u00e9cembre", "decembre",
-#                       "januar", "februar", "m\u00e4rz", "marz", "april", "mai",
-#                       "juni", "juli", "august", "september", "oktober",
-#                       "november", "dezember",
-#                       months(seq(as.Date("2018-01-01"), as.Date("2018-12-31"), by=31))),
-#                     collapse="|")
+monthnames <- paste(c("january", "february", "march", "april", "may",
+                      "june", "july", "august", "september", "october",
+                      "november", "december",
+                      "janvier", "f\u00e9vrier", "fevrier", "mars", "avril", "mai",
+                      "juin", "juillet", "ao\u00fbt", "aout", "septembre",
+                      "octobre", "novembre", "d\u00e9cembre", "decembre",
+                      "januar", "februar", "m\u00e4rz", "marz", "april", "mai",
+                      "juni", "juli", "august", "september", "oktober",
+                      "november", "dezember",
+                      months(seq(as.Date("2018-01-01"), as.Date("2018-12-31"), by=31))),
+                    collapse="|")
 
 parseDateAndEdition <- function(s, tid, language=getPossibleLangs()) {
   # Parse date from date-plus-edition string.

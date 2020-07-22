@@ -175,7 +175,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         if(length(m[["wordcount"]]) > 0)
             m[["wordcount"]] <- as.integer(regmatches(m[["wordcount"]], regexec("[0-9]+", m[["wordcount"]]))[[1]])
         else
-            m[["wordcount"]] <- NA
+            m[["wordcount"]] <- integer(0)
 
         # Ensure heuristically extracted items are sane
         m[["author"]] <- if(length(m[["author"]]) > 0 && !is.na(m[["author"]])) m[["author"]] else character(0)

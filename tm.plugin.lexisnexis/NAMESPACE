@@ -2,6 +2,7 @@ export(LexisNexisSource, LexisNexisAdvanceSource, readLexisNexisHTML, readLexisN
 S3method(getElem, LexisNexisSource)
 S3method(getElem, LexisNexisAdvanceSource)
 importFrom(utils, data, head, tail)
+importFrom(textreadr, read_docx)
 import(ISOcodes)
 import(xml2)
 importFrom(NLP, meta, "meta<-")

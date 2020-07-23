@@ -27,7 +27,8 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                       name=c("name"),
                       correction=c("correction"),
                       correctiondate=c("correction-date"),
-                      distribution=c("distribution"))
+                      distribution=c("distribution"),
+                      series=c("series"))
 
 # Process chunked fields
 split_chunk <- function(str) {
@@ -97,6 +98,10 @@ parseDateAndEdition <- function(s, tid, language=getPossibleLangs()) {
   # issues:
   #
   # "Dienstag 10.Dezember 2019" -> "Dienstag 10. Dezember 2019"
+  if(length(s) == 0 || is.na(s) || is.null(s)) {
+    warning("Empty date and edition string: ", tid, ". Unable to parse.")
+    return(list(date=NA, edition=character(0)))
+  }
   s <- gsub('([0-9]\\.)([A-Za-z])', '\\1 \\2', s)
   
   result <- NULL
@@ -183,13 +188,13 @@ parseDateAndEditionClassic <- function(s, tid, language=getPossibleLangs()) {
 
   # English uses the first format, French (generally) the second one
   s <- strptime(strdate, "%B %d %Y")
-  if(is.na(s)) s <- strptime(strdate, "%d %B %Y")
+  if(is.na(s)) s <- as.POSIXct(strptime(strdate, "%d %B %Y"))
   if(is.na(s) && strdate != "") {
     # Try C locale, just in case
     old.locale <- Sys.getlocale("LC_TIME")
     Sys.setlocale("LC_TIME", "C")
     s <- strptime(strdate, "%B %d %Y")
-    if(is.na(s)) s <- strptime(strdate, "%d %B %Y")
+    if(is.na(s)) s <- as.POSIXct(strptime(strdate, "%d %B %Y"))
     Sys.setlocale("LC_TIME", old.locale)
 
     # A bug in Mac OS gives NA when start of month name matches an abbreviated
@@ -197,7 +202,7 @@ parseDateAndEditionClassic <- function(s, tid, language=getPossibleLangs()) {
     # https://stat.ethz.ch/pipermail/r-sig-mac/2012-June/009296.html
     # Add a workaround for French
     if (Sys.info()["sysname"] == "Darwin")
-      s <- strptime(sub("[jJ]uillet", "07", strdate), "%d %m %Y")
+      s <- as.POSIXct(strptime(sub("[jJ]uillet", "07", strdate), "%d %m %Y"))
 
     if(is.na(s))
       warning("Could not parse document date \"", strdate, "\": ",
@@ -205,7 +210,7 @@ parseDateAndEditionClassic <- function(s, tid, language=getPossibleLangs()) {
               " match that of the corpus. See LC_TIME in ",
               "?Sys.setlocale.\n")
   }
-  list(date=as.POSIXct(s), edition=edition)
+  list(date=s, edition=edition)
 }
 
 cleanUpEdition <- function(edition) {

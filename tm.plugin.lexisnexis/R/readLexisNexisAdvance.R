@@ -51,10 +51,16 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         if(tail(paras, 1) == "End of Document")
             paras <- head(paras, -1)
 
-        # Split out "Classification" section
-        classification_start <- max(which(grepl('^Classification$', paras)))
-        class_paras <- tail(paras, -classification_start)
-        paras <- head(paras, classification_start-1)
+        # Split out the optional "Classification" section.
+        if (any(grepl('^Classification$', paras))) {
+            classification_start <- max(which(grepl('^Classification$', paras)))
+            class_paras <- tail(paras, -classification_start)
+            paras <- head(paras, classification_start-1)
+        } else if (any(grepl('^Load-Date:', paras))) {
+            classification_start <- max(which(grepl('^Load-Date:', paras)))
+            class_paras <- tail(paras, 1-classification_start)
+            paras <- head(paras, classification_start-1)
+        } else stop("can't detect a 'Classification' section or a Load-Date: ", tid, ". Giving up.\n")
 
         # Split out content ("Body") and header sections
         body_start <- min(which(grepl('^Body$', paras)))
@@ -147,10 +153,9 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         # we're using them as metadata, just that they're in the fields list
         # and being successfully pulled out.
         residualcodes <- class_paras[-unlist(exflds)]
-        if (length(residualcodes) > 0) warning("Potential field code lines detected which are not currently handled: ",
+        if (length(residualcodes) > 0) message("Potential field code lines detected which are not currently handled: ",
                                         tid, ".\n",
-                                        paste("\t", residualcodes, collapse="\n"),
-                                        "\n")
+                                        paste("\t", residualcodes, collapse="\n"))
 
 
         #####
@@ -192,12 +197,12 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
             content <- ""
         }
 
-        if (is.na(m[["rights"]])) {
+        if (length(m[["rights"]]) == 0 || is.na(m[["rights"]])) {
             warning("Could not parse copyright notice: ", tid, ". This may indicate a problem with the source data, as LexisNexis copyright notices are nearly universal.\n")
             m[["rights"]] <- character(0)
         }
 
-        if(is.na(m[["datetimestamp"]])) {
+        if(length(m[["datetimestamp"]]) == 0 || is.na(m[["datetimestamp"]])) {
             warning("No date: ", tid, ". Falling back to 'LOAD-DATE' field.\n")
             m[["datetimestamp"]] <- parseDateAndEdition(lookup_field("loaddate"), tid, language=m[["language"]])[[1]]
         }

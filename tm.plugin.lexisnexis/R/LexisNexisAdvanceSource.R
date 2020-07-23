@@ -3,6 +3,23 @@ LexisNexisAdvanceSource <- function(x) {
     # longer available :-/ textreadr should handle any of the full-text
     # document formats, with some minor edits though: .pdf, .docx, and .rtf.
     lines <- textreadr::read_docx(x)
+    
+    docsrx <- '^Documents \\(([0-9]+)\\)'
+    # If we have a header page, trim it. This could be usefully internationalised.
+    if (grepl('^Date and Time:', lines[1]) &&
+        grepl('^Job Number:', lines[2]) &&
+        grepl(docsrx, lines[3])) {
+        ndocs <- as.integer(gsub(docsrx, '\\1', lines[3]))
+        
+        if (ndocs > 1) {
+            nheaderrowsperdoc <- grep('^2.', lines)[[1]] - grep('^1.', lines)[[1]]
+            # Trim
+            lines <- tail(lines, n=-3-(ndocs * nheaderrowsperdoc))
+            
+        } else warning("Don't know how to handle header pages where there is only one document.")
+        
+
+    }
 
     # Document starts: First line, plus (by pushing the vector forward by one
     # and trimming the end) the lines following "End of Document"

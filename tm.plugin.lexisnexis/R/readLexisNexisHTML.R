@@ -287,32 +287,22 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         }
 
         # Extract numeric wordcount
-        if(length(m[["wordcount"]]) > 0)
-            m[["wordcount"]] <- as.integer(regmatches(m[["wordcount"]], regexec("[0-9]+", m[["wordcount"]]))[[1]])
-        else
-            m[["wordcount"]] <- NA
-
+        m[["wordcount"]] <- wordcountFromString(m[["wordcount"]])
+        
+        # Extract page number from section string if possible
+        l <- parsePageAndSection(m[["section"]], m[["language"]], tid)
+        m[["page"]] <- l[["page"]]
+        m[["section"]] <- l[["section"]]
+        
         # Ensure heuristically extracted items are sane
         m[["author"]] <- if(length(m[["author"]]) > 0 && !is.na(m[["author"]])) m[["author"]] else character(0)
         m[["heading"]] <- if(length(m[["heading"]]) > 0 && !is.na(m[["heading"]])) m[["heading"]] else character(0)
         m[["origin"]] <- if(length(m[["origin"]]) > 0 && !is.na(m[["origin"]])) m[["origin"]] else character(0)
 
-        # Generate a unique id. This is ideally the (unique) publication code
-        # plus the date, plus the file sequence number, plus a shortened hash of
-        # the metadata to ensure it is actually unique. Not all records
-        # have a publication code, though, so fall back as needed.
-        pubcode <- lookup_field("pubcode")
-        if (length(pubcode) == 0) {
-            pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
-        }
+        # Generate unique ID
+        m[["id"]] <- idFromMetadata(m, lookup_field("pubcode"), id)
 
-        m[["id"]] <- paste0(pubcode,
-                            strftime(m[["datetimestamp"]], format="%Y%m%d"),
-                            id,
-                            "-",
-                            substr(digest(m, algo="md5", raw=FALSE), 1, 8)
-        )
-
+        
         #####
         # 6: Generate and return a PlainTextDocument
         #####

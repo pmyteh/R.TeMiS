@@ -1,34 +1,40 @@
 # Known translations of field names
 fields <- list(section=c("section", "rubrique", "rubrik"),
-                      length=c("length", "longueur", "l\ue4nge"),
-                      author=c("byline", "auteur", "autor"),
-                      type=c("type", "publication-type", "type-publication"),
-                      subject=c("subject", "sujet"),
-                      language=c("language", "langue", "sprache"),
-                      # The English translation is uncertain for these
-                      intro=c("insert", "encart"),
-                      coverage=c("geographic", "geo-localization", "localisation-geo"),
-                      company=c("company", "societe"),
-                      person=c("person"),
-                      organisation=c("organisation", "organization"),
-                      stocksymbol=c("ticker", "stock-symbol", "symbole-boursier"),
-                      industry=c("industry", "activity-sector", "secteur-activite"),
-                      # Some translations are uncertain for these. Like most LN field
-                      # codes, they don't appear for all sources.
-                      loaddate=c("load-date", "date-chargement"),
-                      graphic=c("graphic"),
-                      dateline=c("dateline"),
-                      # This one, bizarrely, contains a space in LN Advance.
-                      pubcode=c("journal-code", "journal code"),
-                      # Below from the NY Times
-                      doctype=c("document-type"),
-                      url=c("url"),
-                      highlight=c("highlight"),
-                      name=c("name"),
-                      correction=c("correction"),
-                      correctiondate=c("correction-date"),
-                      distribution=c("distribution"),
+               length=c("length", "longueur", "l\ue4nge"),
+               author=c("byline", "auteur", "autor"),
+               type=c("type", "publication-type", "type-publication"),
+               subject=c("subject", "sujet"),
+               language=c("language", "langue", "sprache"),
+               # The English translation is uncertain for these
+               intro=c("insert", "encart"),
+               coverage=c("geographic", "geo-localization", "localisation-geo"),
+               company=c("company", "societe"),
+               person=c("person"),
+               organisation=c("organisation", "organization"),
+               stocksymbol=c("ticker", "stock-symbol", "symbole-boursier"),
+               industry=c("industry", "activity-sector", "secteur-activite"),
+               # Some translations are uncertain for these. Like most LN field
+               # codes, they don't appear for all sources.
+               loaddate=c("load-date", "date-chargement"),
+               graphic=c("graphic"),
+               dateline=c("dateline"),
+               # This one, bizarrely, contains a space in LN Advance.
+               pubcode=c("journal-code", "journal code"),
+               # Below from the NY Times
+               doctype=c("document-type"),
+               url=c("url"),
+               highlight=c("highlight"),
+               name=c("name"),
+               correction=c("correction"),
+               correctiondate=c("correction-date"),
+               distribution=c("distribution"),
+               # Below from Tageszeitung
                       series=c("series"))
+
+# Regular expressions for extracting pages from a combined 
+pageRxs <- list(en=";? *Pg\\. *",
+                fr=";? *Pg\\. *",
+                de=";? *S\\. *")
 
 # Process chunked fields
 split_chunk <- function(str) {
@@ -222,6 +228,31 @@ cleanUpEdition <- function(edition) {
   edition
 }
 
+parsePageAndSection <- function(s, lang, tid) {
+  l <- list(page=character(0), section=s)
+  if (length(lang) == 0 || is.na(lang) || is.null(lang)) lang <- "en"
+  
+  if (length(s) > 0) {
+    # TODO: Differentiate by language
+    rx <- pageRxs[[lang]]
+    
+    v <- stringr::str_split(s, rx)[[1]]
+    
+    if (length(v) != 2) {
+      # Try again with the English regex
+      rx <- pageRxs[["en"]]
+      v <- stringr::str_split(s, rx)[[1]]
+    }
+      
+    if (length(v) == 2) {
+      l[["page"]] <- v[[1]]
+      l[["section"]] <- v[[2]]
+    } else {
+      message("Can't parse ", s, ": ", tid)
+    }
+  }
+  l
+}
 
 standardiseLanguage <- function(v, tid) {
   # Take the language field given by LN and try to convert into a two-letter
@@ -250,3 +281,27 @@ standardiseLanguage <- function(v, tid) {
   }
 }
 
+idFromMetadata <- function(m, pubcode, id) {
+  if (length(pubcode) == 0) {
+    pubcode <- gsub("[^[:alnum:]]", "", substr(m[["origin"]], 1, 10))
+  }
+  
+  paste0(pubcode,
+         strftime(m[["datetimestamp"]], format="%Y%m%d"),
+         id,
+         "-",
+         substr(digest::digest(as.character(m),
+                               algo="md5",
+                               raw=FALSE),
+                1, 8)
+  )
+  
+}
+
+wordcountFromString <- function(s) {
+  if(length(s) > 0)
+    as.integer(regmatches(s, regexec("[0-9]+", s))[[1]])
+  else
+    integer(0)
+  
+}

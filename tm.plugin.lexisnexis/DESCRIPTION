@@ -8,8 +8,7 @@ Authors@R: c(person("Milan", "Bouchet-Valat", email="nalimilan@club.fr",
              person("Tom", "Nicholls",
                     email="tom.nicholls@politics.ox.ac.uk",
                     role="ctb"))
-Imports: utils, NLP, tm (>= 0.6), xml2, ISOcodes, digest, textreadr
-Suggests: reticulate
+Imports: utils, NLP, tm (>= 0.6), xml2, ISOcodes, digest, textreadr, reticulate, stringr
 Description: Provides a 'tm' Source to create corpora from
   articles exported from the 'LexisNexis' content provider as
   HTML files, and as .docx files from LexisNexis Advance.

@@ -14,10 +14,12 @@
     If set to \code{NA}, the language will automatically be set to the value
     reported in the document (which is usually correct).}
   \item{id}{A \code{character} vector representing a unique identification
-    string for the returned text document.}
+    string for the returned text document. This is only used for error
+    reporting and is replaced by a generated id in the resulting document.}
 }
 \value{
-   A \code{PlainTextDocument} with the contents of the article and the available meta-data set.
+   A \code{PlainTextDocument} with the contents of the article and the
+   available meta-data set.
 }
 \seealso{
   \code{\link{getReaders}} to list available reader functions.

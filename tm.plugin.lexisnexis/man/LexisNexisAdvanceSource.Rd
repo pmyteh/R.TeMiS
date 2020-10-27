@@ -1,21 +1,17 @@
-\name{LexisNexisSource}
-\alias{LexisNexisSource}
-\alias{getElem.LexisNexisSource}
-\alias{eoi.LexisNexisSource}
-\title{LexisNexis Source}
+\name{LexisNexisAdvanceSource}
+\alias{LexisNexisAdvanceSource}
+\alias{getElem.LexisNexisAdvanceSource}
+\alias{eoi.LexisNexisAdvanceSource}
+\title{LexisNexis Advance Source}
 \description{
   Construct a source for an input containing a set of articles
-  exported from LexisNexis in the \acronym{HTML} format.
+  exported from LexisNexis Advance in the .docx format.
 }
 \usage{
-  LexisNexisSource(x, encoding = "UTF-8")
+  LexisNexisAdvanceSource(x)
 }
 \arguments{
   \item{x}{Either a character identifying the file or a connection.}
-  \item{encoding}{A character giving the encoding of \code{x}. It will
-    be ignored unless the \acronym{HTML} input does not include
-    this information, which should normally not happen with files exported
-    from LexisNexis.}
 }
 \details{
   This function imports the body of the articles, but also sets several
@@ -48,15 +44,15 @@
   }
 
   Please note that dates are not guaranteed to be parsed correctly
-  if the machine from which the \acronym{HTML} file was exported
+  if the machine from which the input file was exported
   uses a locale different from that of the machine where it is read.
 
-  Currently, only \acronym{HTML} files saved in English and French are supported.
+  Currently, only input files saved in English and French are supported.
   Please send the maintainer examples of LexisNexis files in your
   language if you want it to be supported.
 }
 \value{
-  An object of class \code{LexisNexisSource} which extends the class
+  An object of class \code{LexisNexisAdvanceSource} which extends the class
   \code{Source} representing set of articles from LexisNexis.
 }
 \author{
@@ -64,9 +60,9 @@
 }
 \examples{
     library(tm)
-    file <- system.file("texts", "lexisnexis_test_en.html",
+    file <- system.file("texts", "lexisnexis_advance_test_en.docx",
                         package = "tm.plugin.lexisnexis")
-    corpus <- Corpus(LexisNexisSource(file))
+    corpus <- Corpus(LexisNexisAdvanceSource(file))
 
     # See the contents of the documents
     inspect(corpus)
@@ -75,11 +71,11 @@
     meta(corpus[[1]])
 }
 \seealso{
-  \code{\link{readLexisNexisHTML}} for the function actually parsing
+  \code{\link{readLexisNexisAdvance}} for the function actually parsing
   individual articles.
 
-  \code{\link{LexisNexisAdvanceSource}} for handling articles from LexisNexis
-  Advance, in .docx format.
+  \code{\link{LexisNexisSource}} for handling articles from LexisNexis
+  in \acronym{HTML} format.
 
   \code{\link{getSources}} to list available sources.
 }

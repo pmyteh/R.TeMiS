@@ -166,8 +166,12 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["section"]] <- lookup_field("section")
         m[["graphic"]] <- lookup_field("graphic")
         m[["correction"]] <- lookup_field("correction")
-        # These are processed later
-        m[["language"]] <- if (!is.na(language)) language else lookup_field("language")
+        # These are processed later. We do not rely on the 'language' field fed
+        # in via the readerControl structure here, because VCorpus sets this to
+        # 'en' by default, which is a major footgun. We pick it up later (for
+        # use in parsing dates etc., not for actually putting in the document
+        # metadata) if we don't have anything.
+        m[["language"]] <- lookup_field("language")
         m[["wordcount"]] <- lookup_field("length")
         # These are split later
         m[["intro"]] <- lookup_field("intro")
@@ -272,12 +276,14 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["stocksymbol"]] <- split_chunk(m[["stocksymbol"]])
         m[["industry"]] <- split_chunk(m[["industry"]])
 
-        # Standardise language, using ISO 639 lookup table where possible,
-        # if we weren't given it explicitly.
-        if (is.na(language)) m[["language"]] <- standardiseLanguage(m[["language"]], tid)
+        # Standardise language, using ISO 639 lookup table where possible. Iff
+        # we can't find a language in the document, fall back on whatever we
+        # were given in the readerControl structure.
+        m[["language"]] <- standardiseLanguage(m[["language"]], tid)
         
         # Extract datetimestamp and edition
-        l <- parseDateAndEdition(date_ed_str, tid, language=m[["language"]])
+        bestguesslang <- if (length(m[["language"]] > 0)) m[["language"]] else language
+        l <- parseDateAndEdition(date_ed_str, tid, language=bestguesslang)
         m[["datetimestamp"]] <- l[[1]]
         m[["edition"]] <- l[[2]]
 
@@ -290,7 +296,7 @@ readLexisNexisHTML <- FunctionGenerator(function(elem, language, id) {
         m[["wordcount"]] <- wordcountFromString(m[["wordcount"]])
         
         # Extract page number from section string if possible
-        l <- parsePageAndSection(m[["section"]], m[["language"]], tid)
+        l <- parsePageAndSection(m[["section"]], bestguesslang, tid)
         m[["page"]] <- l[["page"]]
         m[["section"]] <- l[["section"]]
         

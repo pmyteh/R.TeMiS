@@ -32,9 +32,9 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                       series=c("series"))
 
 # Regular expressions for extracting pages from a combined 
-pageRxs <- list(en=";? *Pg\\. *",
-                fr=";? *Pg\\. *",
-                de=";? *S\\. *")
+pageRxs <- list(en=";? *Pg\\. ?*(?=([;$]))",
+                fr=";? *Pg\\. ?*",
+                de=";? *S\\. ?*")
 
 # Process chunked fields
 split_chunk <- function(str) {
@@ -140,11 +140,11 @@ parseDateAndEditionDateparser <- function(s,
                                  'STRICT_PARSING'=TRUE)
 
   dateparser <- reticulate::import("dateparser")
+  datetime <- reticulate::import("datetime")
   tup <- dateparser$search$search_dates(s, languages=ll, settings=dpsettings)[[1]]
   # Test for various kinds of misparsing
   if (!is.null(tup)) {
     parseddatestring <- tup[[1]]
-    dt <- reticulate::py_to_r(tup[[2]])
     # If dateparser finds only a year, it can try to parse it erroneously.
     # 2019 can become [20]20[/]1[/]9: 9 Jan 2020. See
     # https://github.com/scrapinghub/dateparser/issues/356
@@ -154,7 +154,18 @@ parseDateAndEditionDateparser <- function(s,
     # If the 'date' it's detected is shorter than 6 characters ('1/1/20') then
     # abandon and try the built-in classifier.
 #      if (grepl('^[0-9]{4}$', tup[[1]])) tup <- NULL
-    if (nchar(parseddatestring) < 6) tup <- NULL
+    if (nchar(parseddatestring) < 6) {
+      tup <- NULL
+    } else {
+      # There is a bug in reticulate
+      # (https://github.com/rstudio/reticulate/issues/876) the conversion to
+      # POSIXct fails for datetime.datetime objects without a timezone set.
+      # Furthermore, the current version of reticulate coerces them all to UTC
+      # anyway. And LexisNexis does not(?) return timezone information. So
+      # although it's pretty grotty, just force everything to UTC here.
+      dt <- tup[[2]]$replace(tzinfo=datetime$timezone$utc)
+#      dt <- reticulate::py_to_r(d)
+    }
 
   }
   # TODO: if (is.null(tup)) could try reparsing without languages restriction

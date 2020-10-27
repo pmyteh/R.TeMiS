@@ -31,10 +31,12 @@ fields <- list(section=c("section", "rubrique", "rubrik"),
                # Below from Tageszeitung
                       series=c("series"))
 
-# Regular expressions for extracting pages from a combined 
-pageRxs <- list(en=";? *Pg\\. ?*(?=([;$]))",
-                fr=";? *Pg\\. ?*",
-                de=";? *S\\. ?*")
+# Regular expressions for extracting pages from a combined section/page/edition
+# string
+pageRxs <- list(en=";? *P(g\\.|age) *",
+                fr=";? *P(g\\.|age) *",
+                de=";? *S\\. *")
+endpageRx <- "[;,].*"
 
 # Process chunked fields
 split_chunk <- function(str) {
@@ -247,20 +249,33 @@ parsePageAndSection <- function(s, lang, tid) {
     # TODO: Differentiate by language
     rx <- pageRxs[[lang]]
     
-    v <- stringr::str_split(s, rx)[[1]]
+#    v <- stringr::str_split(s, rx)[[1]]
+    v <- stringr::str_split(s, ' *; *')[[1]]
+    pgs <- which(grepl(rx, v))
     
-    if (length(v) != 2) {
-      # Try again with the English regex
-      rx <- pageRxs[["en"]]
-      v <- stringr::str_split(s, rx)[[1]]
-    }
-      
-    if (length(v) == 2) {
-      l[["page"]] <- v[[1]]
-      l[["section"]] <- v[[2]]
+    # If it fails, try again with the English regex
+    if (length(pgs) == 0) pgs <- which(grepl(pageRxs[["en"]], v))
+    
+    if (length(pgs) > 0) {
+      pgs <- head(pgs, 1L)
+      l[["page"]] <- gsub(rx, '', v[pgs])
+      l[["section"]] <- paste(v[-pgs], collapse='; ')
     } else {
       message("Can't parse ", s, ": ", tid)
     }
+    
+    # if (length(v) != 2) {
+    #   # Try again with the English regex
+    #   rx <- pageRxs[["en"]]
+    #   v <- stringr::str_split(s, rx)[[1]]
+    # }
+      
+    # if (length(v) == 2) {
+    #   l[["page"]] <- v[[1]]
+    #   l[["section"]] <- v[[2]]
+    # } else {
+    #   message("Can't parse ", s, ": ", tid)
+    # }
   }
   l
 }

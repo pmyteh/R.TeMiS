@@ -2,19 +2,24 @@ LexisNexisAdvanceSource <- function(x) {
     # LexisNexis Advance files have a different format, and HTML output is no
     # longer available :-/ textreadr should handle any of the full-text
     # document formats, with some minor edits though: .pdf, .docx, and .rtf.
+    # Sadly, read_docx is *slow*.
     lines <- textreadr::read_docx(x)
     
     docsrx <- '^Documents \\(([0-9]+)\\)'
     # If we have a header page, trim it. This could be usefully internationalised.
-    if (grepl('^Date and Time:', lines[1]) &&
-        grepl('^Job Number:', lines[2]) &&
-        grepl(docsrx, lines[3])) {
-        ndocs <- as.integer(gsub(docsrx, '\\1', lines[3]))
+    if (any(grepl('^Date and Time:', lines[1:5])) &&
+        any(grepl('^Job Number:', lines[1:5])) &&
+        any(grepl(docsrx, lines[1:5]))) {
+        docslineno <- grep(docsrx, lines[1:5])[[1]]
+        ndocs <- as.integer(gsub(docsrx, '\\1', lines[docslineno]))
         
         if (ndocs > 1) {
-            nheaderrowsperdoc <- grep('^2.', lines)[[1]] - grep('^1.', lines)[[1]]
+            # Calculate length of each header row by finding the distance
+            # between the first and second
+            line1 <- grep('^1\\.', lines)[[1]]
+            nheaderrowsperdoc <- grep('^2\\.', lines)[[1]] - line1
             # Trim
-            lines <- tail(lines, n=-3-(ndocs * nheaderrowsperdoc))
+            lines <- tail(lines, n=1-line1-(ndocs * nheaderrowsperdoc))
             
         } else warning("Don't know how to handle header pages where there is only one document.")
         

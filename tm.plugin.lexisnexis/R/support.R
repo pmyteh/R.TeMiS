@@ -260,9 +260,9 @@ parsePageAndSection <- function(s, lang, tid) {
       pgs <- head(pgs, 1L)
       l[["page"]] <- gsub(rx, '', v[pgs])
       l[["section"]] <- paste(v[-pgs], collapse='; ')
-    } else {
-      message("Can't parse ", s, ": ", tid)
-    }
+    }# else {
+#      message("Can't parse page number from '", s, "': ", tid)
+#    }
     
     # if (length(v) != 2) {
     #   # Try again with the English regex

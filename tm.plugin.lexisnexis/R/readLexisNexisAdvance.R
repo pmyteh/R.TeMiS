@@ -112,20 +112,59 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         # FIXME
         if (max(cr) > 4) warning("Unexpected headers found:", tid, "; ", head(header_paras, max(cr)-1)[-c(1,2,3)], "\n")
 
-
         #####
         # 3: Metadata fields by tagname
         #####
 
+        regexFromFields <- function(field) {
+            # With LexisNexis Advance the field codes are no longer all uppercase, but
+            # (at least in .docx) they are now all consistently at the start of the
+            # line, followed by a colon and a non-breaking space (U+00A0).
+            paste0('^(', paste0(fields[[field]], collapse='|'), '):\\h+')
+            #            paste0('^(', paste0(fields[[field]], collapse='|'), '):\u00a0[ \u00a0]*')
+        }
+        
+        getParaNumbersForField <- function(paras, field, tid) {
+            ind <- which(grepl(regexFromFields(field), paras, ignore.case=TRUE, perl=TRUE))
+            if(length(ind) > 1) {
+                warning("Multiple matches for field ", field, ": ", tid, ". Choosing the first from ", paras[ind], "\n")
+                ind <- min(ind)
+            }
+            
+            if (length(ind) == 0) return(integer(0))
+            
+            extralines <- 0
+            if (ind != length(paras)) for (i in (ind+1):length(paras)) {
+                # We're assuming that 'run-on' fields, where the content
+                # continues on to the next paragraph, don't have the ': '
+                # structure that potentially indicates a tag. There's no perfect
+                # solution to this, as we don't have an exhaustive list of tags.
+                # If we falsely exclude something here, and it *doesn't* match a
+                # tag that we know about, a warning will be thrown later.
+                if (!grepl(':\\h+', paras[i], ignore.case=TRUE, perl=TRUE)) {
+                    extralines <- extralines + 1
+                } else break
+            }
+#            if (extralines > 0) warning(tid, ": extra lines detected for ", field, ": ",
+#                                        paras[ind:ind+extralines], '\n')
+            if (extralines > 0) return(ind:(ind+extralines))
+            
+            ind
+        }
+        
+        
         exflds <- list()
         # We detect, and parse, those fieldnames identified in `fields`.
         # We don't necessarily to anything with these. Later we take the fields
         # from the exflds list that we want.
         for (field in names(fields)) {
-    	    exflds[[field]] <- getParaNumberForField(class_paras, field, tid)
+    	    exflds[[field]] <- getParaNumbersForField(class_paras, field, tid)
         }
 
-        lookup_field <- function(key) gsub(regexFromFields(key), "", class_paras[exflds[[key]]], ignore.case=TRUE, perl=TRUE)
+        lookup_field <- function(key) {
+            content <- gsub(regexFromFields(key), "", class_paras[exflds[[key]]], ignore.case=TRUE, perl=TRUE)
+            paste0(content, collapse='; ')
+        }
 
         # These are raw string (or character(0)) lookups; those which need
         # splitting, or further parsing are processed later.
@@ -153,9 +192,13 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         # we're using them as metadata, just that they're in the fields list
         # and being successfully pulled out.
         residualcodes <- class_paras[-unlist(exflds)]
-        if (length(residualcodes) > 0) message("Potential field code lines detected which are not currently handled: ",
-                                        tid, ".\n",
-                                        paste("\t", residualcodes, collapse="\n"))
+        if (length(residualcodes) > 0) message("Potential field code lines ",
+                                               "detected which are not ",
+                                               "currently handled (or could ",
+                                               "be part of the previous ",
+                                               "field): ", tid, ".\n",
+                                               paste("\t", residualcodes,
+                                                     collapse="\n"))
 
 
         #####

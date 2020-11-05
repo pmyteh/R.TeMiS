@@ -1,23 +1,5 @@
 readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
     function(elem, language, id) {
-        regexFromFields <- function(field) {
-            # With LexisNexis Advance the field codes are no longer all uppercase, but
-            # (at least in .docx) they are now all consistently at the start of the
-            # line, followed by a colon and a non-breaking space (U+00A0).
-            paste0('^(', paste0(fields[[field]], collapse='|'), '):\\h+')
-#            paste0('^(', paste0(fields[[field]], collapse='|'), '):\u00a0[ \u00a0]*')
-        }
-
-        getParaNumberForField <- function(paras, field, tid) {
-            ind <- which(grepl(regexFromFields(field), paras, ignore.case=TRUE, perl=TRUE))
-            if(length(ind) > 1) {
-                warning("Multiple matches for field ", field, ": ", tid, ". Choosing the first from ", paras[ind], "\n")
-                ind <- min(ind)
-            }
-
-            if (length(ind) == 1) return(ind)
-            integer(0)
-        }
 
         # The contents of a LexisNexis file are language-dependent,
         # inconsistent, only partially semantically tagged, and don't follow a
@@ -31,9 +13,6 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         #    slugs such as "Load-Date:" in consistent places at the start of lines
         # 4) Tidy up the variables where needed
         # 5) Make a PlainTextDocument and return it
-        #
-        # We keep track of which nodes have been processed, and what we got from
-        # them, by adding attributes to nodes directly.
 
         # Temporary id, until we've parsed the date etc.
         tid <- paste0(basename(elem$uri), ":", id)
@@ -44,14 +23,18 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         #####
         # 1: Parsing
         #####
-        paras <- strsplit(elem$content, "\n", fixed=TRUE)[[1]]
 
+        # We try to detect valid sections from the bottom, splitting them out
+        # and shortening the rump 'paras' vector as we go. Any of the sections
+        # except the header section could be missing.
+        
+        paras <- strsplit(elem$content, "\n", fixed=TRUE)[[1]]
         # Trim empty and spurious nodes
         paras <- paras[paras != ""]
         if(tail(paras, 1) == "End of Document")
             paras <- head(paras, -1)
 
-        # Split out the optional "Classification" section.
+        # Split out the optional "Classification" section at the bottom.
         if (any(grepl('^Classification$', paras))) {
             classification_start <- max(which(grepl('^Classification$', paras)))
             class_paras <- tail(paras, -classification_start)
@@ -62,23 +45,36 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
             paras <- head(paras, classification_start-1)
         } else stop("can't detect a 'Classification' section or a Load-Date: ", tid, ". Giving up.\n")
 
-        # Split out content ("Body") and header sections
-        body_start <- min(which(grepl('^Body$', paras)))
-        header_paras <- head(paras, body_start-1)
-        paras <- tail(paras, -body_start)
-
-        # Split out graphic section (which may be missing)
-        poss_graphics <- grepl('^Graphic$', paras)
-        if (any(poss_graphics)) {
-            graphic_start <- max(which(poss_graphics))
+        # Split out the optional graphic section. If there are multiple lines
+        # starting with 'Graphic', we choose the latest. This is not perfect.
+        graphic_start <- which(grepl('^Graphic$', paras))
+        if (length(graphic_start) > 0) {
+            graphic_start <- max(graphic_start)
             m[["graphic"]] <- tail(paras, -graphic_start)
             paras <- head(paras, graphic_start-1)
         } else {
             m[["graphic"]] <- character(0)
         }
+        
+        # Split out the optional content ("Body") section. If there are multiple
+        # lines starting with 'Body' we choose the first. This is also not
+        # perfect.
+        body_start <- which(grepl('^Body$', paras))
+        if (length(body_start) > 0) {
+            body_start <- min(body_start)
+            content <- tail(paras, -body_start)
+            paras <- head(paras, body_start-1)
+        } else {
+            content <- character(0)
+        }
 
-        content <- paras
+        # The header section is what's left (at the start).
+        header_paras <- paras
 
+        if (length(content) == 0 && length(m[["graphic"]]) == 0) {
+            message("Can't detect either a 'Body' section or a 'Graphic' section: ", tid, ".\n")
+        }
+        
         #####
         # 2: Metadata fields by position
         #####

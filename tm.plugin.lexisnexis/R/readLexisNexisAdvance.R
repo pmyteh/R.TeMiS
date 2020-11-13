@@ -163,7 +163,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
 
         lookup_field <- function(key) {
             content <- gsub(regexFromFields(key), "", class_paras[exflds[[key]]], ignore.case=TRUE, perl=TRUE)
-            paste0(content, collapse='; ')
+            if (length(content) > 0) paste0(content, collapse='; ') else character(0)
         }
 
         # These are raw string (or character(0)) lookups; those which need

@@ -135,14 +135,23 @@ parseDateAndEditionDateparser <- function(s,
     ll <- language
   }
 
-  # Don't create a timezone (fairly useless given these are only days anyway);
-  # don't return anything if the day/month is missing (as otherwise you're in
-  # danger of getting the *current* day/month)
-  dpsettings <- reticulate::dict('RETURN_AS_TIMEZONE_AWARE'=FALSE,
-                                 'STRICT_PARSING'=TRUE)
-
   dateparser <- reticulate::import("dateparser")
   datetime <- reticulate::import("datetime")
+  # Don't attempt 'relative' parsing ('3 weeks ago') because it's never valid in LN
+  # and a combination of relative parsing and weird edition strings can really
+  # screw us up.
+  # Finally, assume UTC and return UTC POSIXct. There is a bug in reticulate
+  # (https://github.com/rstudio/reticulate/issues/876) the conversion to
+  # POSIXct fails for datetime.datetime objects without a timezone set.
+  # Furthermore, the current version of reticulate coerces them all to UTC
+  # anyway. And LexisNexis does not(?) return timezone information. So
+  # although it's pretty grotty, just force everything to UTC here.
+  dpsettings <- reticulate::dict('TIMEZONE'='UTC',
+                                 'TO_TIMEZONE'='UTC',
+                                 'RETURN_AS_TIMEZONE_AWARE'=TRUE,
+                                 'STRICT_PARSING'=TRUE,
+                                 'PARSERS'=list('absolute-time'))
+
   tup <- dateparser$search$search_dates(s, languages=ll, settings=dpsettings)[[1]]
   # Test for various kinds of misparsing
   if (!is.null(tup)) {
@@ -159,14 +168,7 @@ parseDateAndEditionDateparser <- function(s,
     if (nchar(parseddatestring) < 6) {
       tup <- NULL
     } else {
-      # There is a bug in reticulate
-      # (https://github.com/rstudio/reticulate/issues/876) the conversion to
-      # POSIXct fails for datetime.datetime objects without a timezone set.
-      # Furthermore, the current version of reticulate coerces them all to UTC
-      # anyway. And LexisNexis does not(?) return timezone information. So
-      # although it's pretty grotty, just force everything to UTC here.
-      dt <- tup[[2]]$replace(tzinfo=datetime$timezone$utc)
-#      dt <- reticulate::py_to_r(d)
+      dt <- reticulate::py_to_r(tup[[2]])
     }
 
   }

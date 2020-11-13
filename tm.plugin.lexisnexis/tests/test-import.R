@@ -32,11 +32,8 @@ for (o in c(TRUE, FALSE)) {
   file <- system.file("texts", "lexisnexis_test_date.html",
                       package = "tm.plugin.lexisnexis")
   corpus <- Corpus(LexisNexisSource(file))
-  dt <- as.POSIXlt(meta(corpus[[1]], "datetimestamp"))
-  stopifnot(dt$year + 1900 == 2008,
-            dt$mon + 1 == 7,
-            dt$mday == 26)
-  
+  dt <- meta(corpus[[1]], "datetimestamp")
+  stopifnot(dt == as.POSIXct("2008/7/26", tz="UTC"))
 }
 options(LNUseDateparser=usedateparser)
 

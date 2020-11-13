@@ -12,18 +12,20 @@ LexisNexisAdvanceSource <- function(x) {
         any(grepl(docsrx, lines[1:5]))) {
         docslineno <- grep(docsrx, lines[1:5])[[1]]
         ndocs <- as.integer(gsub(docsrx, '\\1', lines[docslineno]))
-        
-        if (ndocs > 1) {
-            # Calculate length of each header row by finding the distance
-            # between the first and second
-            line1 <- grep('^1\\.', lines)[[1]]
-            nheaderrowsperdoc <- grep('^2\\.', lines)[[1]] - line1
-            # Trim
-            lines <- tail(lines, n=1-line1-(ndocs * nheaderrowsperdoc))
-            
-        } else warning("Don't know how to handle header pages where there is only one document.")
-        
 
+        # Calculate length of each header row by finding the distance
+        # between the first and second
+        line1 <- grep('^1\\.', lines)[[1]]
+        if (ndocs > 1) {
+            nheaderrowsperdoc <- grep('^2\\.', lines)[[1]] - line1
+            
+        } else {
+            warning("Can't properly handle header pages where there is only one document. Guessing.")
+            nheaderrowsperdoc <- 2
+        }
+        # Trim
+        lines <- tail(lines, n=1-line1-(ndocs * nheaderrowsperdoc))
+        
     }
 
     # Document starts: First line, plus (by pushing the vector forward by one

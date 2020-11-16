@@ -3,13 +3,14 @@ LexisNexisAdvanceSource <- function(x) {
     # longer available :-/ textreadr should handle any of the full-text
     # document formats, with some minor edits though: .pdf, .docx, and .rtf.
     # Sadly, read_docx is *slow*.
+    if (!file.exists(x)) stop("File ", x, " doesn't exist. Stopping.")
     lines <- textreadr::read_docx(x)
     
-    docsrx <- '^Documents \\(([0-9]+)\\)'
+    docsrx <- '^Documents? \\(([0-9]+)\\)'
     # If we have a header page, trim it. This could be usefully internationalised.
     if (any(grepl('^Date and Time:', lines[1:5])) &&
-        any(grepl('^Job Number:', lines[1:5])) &&
-        any(grepl(docsrx, lines[1:5]))) {
+          any(grepl('^Job Number:', lines[1:5])) &&
+          any(grepl(docsrx, lines[1:5]))) {
         docslineno <- grep(docsrx, lines[1:5])[[1]]
         ndocs <- as.integer(gsub(docsrx, '\\1', lines[docslineno]))
 
@@ -20,10 +21,15 @@ LexisNexisAdvanceSource <- function(x) {
             nheaderrowsperdoc <- grep('^2\\.', lines)[[1]] - line1
             
         } else {
-            warning("Can't properly handle header pages where there is only one document. Guessing.")
-            nheaderrowsperdoc <- 2
+#            warning("Can't properly handle header pages where there is only one document. Guessing.")
+            srcrx <- '^Sources:'
+            if (any(grepl(srcrx, lines))) {
+                nheaderrowsperdoc <- grep('^Sources:', lines)[[1]] + 1 - line1
+            } else {
+                nheaderrowsperdoc <- 2
+            }
         }
-        # Trim
+        # Trim header page
         lines <- tail(lines, n=1-line1-(ndocs * nheaderrowsperdoc))
         
     }
@@ -35,6 +41,10 @@ LexisNexisAdvanceSource <- function(x) {
     # Call as.character() to remove useless names and get a vector instead of a
     # 1d array
     content <- as.character(tapply(lines, cumsum(newdocs), paste, collapse="\n"))
+    
+    # If we have a header page (and so can check), check we've got the right
+    # number of documents
+    if(exists("ndocs")) stopifnot(length(content) == ndocs)
 
     # Get rid of short empty sections
     content <- content[nchar(content) > 200]

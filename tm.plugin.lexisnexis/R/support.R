@@ -208,7 +208,7 @@ parseDateAndEditionClassic <- function(s, tid, language=getPossibleLangs()) {
 #    edition <- trimws(gsub("[[:space:]]+", " ", edition))
 
   # English uses the first format, French (generally) the second one
-  s <- strptime(strdate, "%B %d %Y")
+  s <- as.POSIXct(strptime(strdate, "%B %d %Y"))
   if(is.na(s)) s <- as.POSIXct(strptime(strdate, "%d %B %Y"))
   if(is.na(s) && strdate != "") {
     # Try C locale, just in case

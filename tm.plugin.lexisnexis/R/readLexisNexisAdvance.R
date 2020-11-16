@@ -173,11 +173,6 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         m[["section"]] <- lookup_field("section")
 #        m[["graphic"]] <- lookup_field("graphic")
         m[["correction"]] <- lookup_field("correction")
-        # These are processed later. We do not rely on the 'language' field fed
-        # in via the readerControl structure here, because VCorpus sets this to
-        # 'en' by default, which is a major footgun. We pick it up later (for
-        # use in parsing dates etc., not for actually putting in the document
-        # metadata) if we don't have anything.
         m[["language"]] <- lookup_field("language")
         m[["wordcount"]] <- lookup_field("length")
         # These are split later
@@ -212,13 +207,17 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         m[["stocksymbol"]] <- split_chunk(m[["stocksymbol"]])
         m[["industry"]] <- split_chunk(m[["industry"]])
 
-        # Standardise language, using ISO 639 lookup table where possible. Iff
-        # we can't find a language in the document, fall back on whatever we
-        # were given in the readerControl structure.
+        # Standardise language, using ISO 639 lookup table where possible.
         m[["language"]] <- standardiseLanguage(m[["language"]], tid)
+        # If we couldn't parse a language from the document, try the
+        # readerControl 'language' field (fed in via the Corpus() call). In
+        # theory, we should use the 'language' field for preference, but we
+        # can't because VCorpus sets this to 'en' by default, which is a major
+        # footgun.
+        if (length(m[["language"]]) == 0) m[["language"]]
 
-        # Extract datetimestamp and edition
-        bestguesslang <- if (length(m[["language"]] > 0)) m[["language"]] else language
+        # Extract datetimestamp and edition.
+        bestguesslang <- m[["language"]]
         l <- parseDateAndEdition(date_ed_str, tid, language=bestguesslang)
         m[["datetimestamp"]] <- l[[1]]
         m[["edition"]] <- l[[2]]

@@ -42,10 +42,6 @@ LexisNexisAdvanceSource <- function(x) {
     # 1d array
     content <- as.character(tapply(lines, cumsum(newdocs), paste, collapse="\n"))
     
-    # If we have a header page (and so can check), check we've got the right
-    # number of documents
-    if(exists("ndocs")) stopifnot(length(content) == ndocs)
-
     # Get rid of short empty sections
     content <- content[nchar(content) > 200]
 

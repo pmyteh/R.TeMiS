@@ -214,11 +214,10 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         # theory, we should use the 'language' field for preference, but we
         # can't because VCorpus sets this to 'en' by default, which is a major
         # footgun.
-        if (length(m[["language"]]) == 0) m[["language"]]
+        if (length(m[["language"]]) == 0) m[["language"]] <- language
 
         # Extract datetimestamp and edition.
-        bestguesslang <- m[["language"]]
-        l <- parseDateAndEdition(date_ed_str, tid, language=bestguesslang)
+        l <- parseDateAndEdition(date_ed_str, tid, language=m[["language"]])
         m[["datetimestamp"]] <- l[[1]]
         m[["edition"]] <- l[[2]]
 

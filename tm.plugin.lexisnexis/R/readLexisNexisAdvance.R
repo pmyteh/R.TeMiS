@@ -225,7 +225,7 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
         m[["wordcount"]] <- wordcountFromString(m[["wordcount"]])
         
         # Extract page number from section string if possible
-        l <- parsePageAndSection(m[["section"]], bestguesslang, tid)
+        l <- parsePageAndSection(m[["section"]], m[["language"]], tid)
         m[["page"]] <- l[["page"]]
         m[["section"]] <- l[["section"]]
 

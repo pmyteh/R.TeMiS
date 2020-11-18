@@ -136,17 +136,17 @@ readLexisNexisAdvance <- FunctionGenerator(function(elem, language, id) {
             extralines <- 0
             if (ind != length(paras)) for (i in (ind+1):length(paras)) {
                 # We're assuming that 'run-on' fields, where the content
-                # continues on to the next paragraph, don't have the ': '
-                # structure that potentially indicates a tag. There's no perfect
-                # solution to this, as we don't have an exhaustive list of tags.
-                # If we falsely exclude something here, and it *doesn't* match a
-                # tag that we know about, a warning will be thrown later.
-                if (!grepl(':\\h+', paras[i], ignore.case=TRUE, perl=TRUE)) {
+                # continues on to the next paragraph, don't have a structure
+                # that potentially indicates a tag. There's no perfect solution
+                # to this, as we don't have an exhaustive list of tags. We
+                # assume no spaces in unknown tags (not necessarily true, but
+                # all but one tag we know is separated with hyphens). If we
+                # falsely exclude something here, and it *doesn't* match a tag
+                # that we know about, a warning will be thrown later.
+                if (!grepl('^([^ ]|journal code)+:\\h+', paras[i], ignore.case=TRUE, perl=TRUE)) {
                     extralines <- extralines + 1
                 } else break
             }
-#            if (extralines > 0) warning(tid, ": extra lines detected for ", field, ": ",
-#                                        paras[ind:ind+extralines], '\n')
             if (extralines > 0) return(ind:(ind+extralines))
             
             ind
